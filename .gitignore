@@ -1,0 +1,41 @@
+.env
+.env.*
+!.env.example
+
+# Python cache/build
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# IDE/editor
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local databases and artifacts
+*.db
+*.sqlite
+*.sqlite3
+data/documents/
+
+# Logs
+*.log

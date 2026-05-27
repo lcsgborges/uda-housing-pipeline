@@ -1,0 +1,40 @@
+import pytest
+from pydantic import ValidationError
+
+from app.modules.metrics.schemas import ExtractedMetricBatch
+
+
+def test_schema_valido():
+    payload = {
+        "metrics": [
+            {
+                "company": "MRV",
+                "period_year": 2025,
+                "period_quarter": 3,
+                "metric_name": "vendas_liquidas",
+                "metric_category": "operacional",
+                "value": 10.0,
+                "unit": "R$",
+                "currency": "BRL",
+                "source_page": 1,
+                "source_excerpt": "Vendas líquidas totalizaram 10.",
+                "confidence": 0.8,
+            }
+        ]
+    }
+    result = ExtractedMetricBatch.model_validate(payload)
+    assert result.metrics[0].metric_name == "vendas_liquidas"
+
+
+def test_schema_rejeita_confianca_invalida():
+    payload = {
+        "metrics": [
+            {
+                "company": "MRV",
+                "metric_name": "vendas_liquidas",
+                "confidence": 1.5,
+            }
+        ]
+    }
+    with pytest.raises(ValidationError):
+        ExtractedMetricBatch.model_validate(payload)
