@@ -29,7 +29,11 @@ class IngestionService:
         self.extraction_service = ExtractionService(session)
         self.storage = build_object_storage()
 
-    async def run(self, company_id: int | None = None, extract_after_ingestion: bool = True) -> dict:
+    async def run(
+        self,
+        company_id: int | None = None,
+        extract_after_ingestion: bool = True,
+    ) -> dict:
         stmt = select(Company).where(Company.is_active.is_(True))
         if company_id is not None:
             stmt = stmt.where(Company.id == company_id)
@@ -122,12 +126,18 @@ class IngestionService:
 
 def infer_period(url: str, title: str) -> tuple[int | None, int | None]:
     text = f"{url} {title}".lower()
+    quarter_year_match = re.search(r"([1-4])t[\s_-]?(20\d{2}|\d{2})", text)
     quarter_match = re.search(r"([1-4])t", text)
     year_match = re.search(r"(20\d{2})", text)
     year_short_match = re.search(r"\b(\d{2})\b", text)
 
     quarter = int(quarter_match.group(1)) if quarter_match else None
     year = int(year_match.group(1)) if year_match else None
+
+    if quarter_year_match:
+        quarter = int(quarter_year_match.group(1))
+        compact_year = quarter_year_match.group(2)
+        year = int(compact_year) if len(compact_year) == 4 else 2000 + int(compact_year)
 
     if year is None and year_short_match:
         yy = int(year_short_match.group(1))

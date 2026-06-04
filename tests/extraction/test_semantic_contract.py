@@ -1,6 +1,10 @@
 import pytest
 from pydantic import ValidationError
 
+from app.modules.extraction.semantic_contract import (
+    get_semantic_batch_contract_json_schema,
+    get_semantic_contract_json_schema,
+)
 from app.modules.metrics.schemas import ExtractedMetricBatch
 
 
@@ -67,3 +71,11 @@ def test_schema_rejeita_pagina_invalida():
     }
     with pytest.raises(ValidationError):
         ExtractedMetricBatch.model_validate(payload)
+
+
+def test_semantic_contract_exporta_json_schema():
+    schema = get_semantic_contract_json_schema()
+    batch_schema = get_semantic_batch_contract_json_schema()
+
+    assert schema["properties"]["metrics"]
+    assert batch_schema["properties"]["documents"]

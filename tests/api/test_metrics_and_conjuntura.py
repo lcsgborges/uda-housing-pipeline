@@ -72,7 +72,16 @@ async def test_consulta_metricas(client, db_session):
         "/api/conjuntura",
         params={"empresa": "MRV", "ano": 2025, "trimestre": 3},
     )
+    resp_conjuntura_ticker = client.get(
+        "/api/conjuntura",
+        params={"empresa": "MRVE3", "ano": 2025, "trimestre": 3},
+    )
+    resp_metric = client.get("/api/metrics/1")
+    resp_metric_missing = client.get("/api/metrics/999")
     assert resp_conjuntura.status_code == 200
     payload = resp_conjuntura.json()
     assert payload["empresa"] == "MRV"
     assert payload["metricas"][0]["nome"] == "vendas_liquidas"
+    assert resp_conjuntura_ticker.status_code == 200
+    assert resp_metric.status_code == 200
+    assert resp_metric_missing.status_code == 404

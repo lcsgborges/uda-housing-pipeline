@@ -37,13 +37,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Local databases, storage and artifacts
-*.db
-*.sqlite
-*.sqlite3
-*.db-journal
-*.db-shm
-*.db-wal
+# Local storage and artifacts
 data/*
 !data/.gitkeep
 
