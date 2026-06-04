@@ -143,7 +143,7 @@ OPENAI_MODEL=gpt-4.1-mini
 
 ## Docker Compose
 
-Não há mais `compose.yml` genérico. As stacks são explícitas:
+Stacks disponíveis:
 
 - `compose.dev.yml`
 - `compose.prod.yml`
@@ -191,7 +191,7 @@ uv run task compose_prod_down
 
 ## Dockerfiles
 
-Não há mais `Dockerfile` genérico. As imagens são explícitas:
+Imagens disponíveis:
 
 | Arquivo | Uso |
 | --- | --- |
