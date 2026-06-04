@@ -1,5 +1,5 @@
-import enum
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class DocumentStatus(str, enum.Enum):
+class DocumentStatus(StrEnum):
     discovered = "discovered"
     downloaded = "downloaded"
     processing = "processing"
@@ -20,7 +20,10 @@ class Document(Base):
     __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"), index=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        index=True,
+    )
     title: Mapped[str | None] = mapped_column(String(300), nullable=True)
     original_url: Mapped[str] = mapped_column(String(700), nullable=False)
     local_path: Mapped[str | None] = mapped_column(String(700), nullable=True)

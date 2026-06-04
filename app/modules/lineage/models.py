@@ -11,7 +11,10 @@ class DataLineage(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     metric_id: Mapped[int] = mapped_column(ForeignKey("metrics.id", ondelete="CASCADE"), index=True)
-    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"), index=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        index=True,
+    )
     original_url: Mapped[str] = mapped_column(String(700), nullable=False)
     file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     source_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
