@@ -1,6 +1,17 @@
-# Como rodar com Docker Compose
+# Como Rodar com Docker Compose
 
-Este projeto sobe a API FastAPI, PostgreSQL e RustFS em uma única stack. A API usa PostgreSQL para o catálogo relacional e RustFS como storage S3-compatible para PDFs/imagens coletados.
+Este projeto possui stacks separadas para desenvolvimento e produção. As duas sobem API FastAPI, PostgreSQL, RustFS e documentação MkDocs Material.
+
+## Serviços Expostos
+
+| Serviço | Desenvolvimento | Produção | Uso |
+| --- | --- | --- | --- |
+| API | `http://localhost:8000` | `http://localhost:8000` | Backend FastAPI. |
+| Swagger/OpenAPI | `http://localhost:8000/docs` | `http://localhost:8000/docs` | Teste manual da API. |
+| MkDocs | `http://localhost:8001` | `http://localhost:8001` | Documentação técnica. |
+| PostgreSQL | `localhost:5432` | `localhost:5432` | Banco relacional. |
+| RustFS S3 API | `http://localhost:9000` | `http://localhost:9000` | Object storage. |
+| RustFS Console | `http://localhost:9001` | `http://localhost:9001` | Console web do storage. |
 
 ## 1. Configurar ambiente
 
@@ -22,19 +33,54 @@ Para rodar sem custo de API durante desenvolvimento:
 LLM_PROVIDER=fake
 ```
 
-## 2. Subir a stack
+Portas podem ser alteradas no `.env`:
 
-```bash
-docker compose --env-file .env up --build
+```env
+API_PORT=8000
+DOCS_PORT=8001
+POSTGRES_PORT=5432
+RUSTFS_API_PORT=9000
+RUSTFS_CONSOLE_PORT=9001
 ```
 
-Serviços expostos:
+## 2. Subir Desenvolvimento
 
-- API: `http://localhost:8000`
-- Swagger/OpenAPI: `http://localhost:8000/docs`
-- PostgreSQL: `localhost:5432`
-- RustFS S3 API: `http://localhost:9000`
-- RustFS Console: `http://localhost:9001`
+```bash
+docker compose --env-file .env -f compose.dev.yml up --build
+```
+
+Atalhos com taskipy:
+
+```bash
+uv run task compose_up
+uv run task compose_down
+```
+
+No desenvolvimento:
+
+- `api` usa `Dockerfile.dev` e roda `uvicorn --reload`;
+- `docs` usa `mkdocs serve` com reload;
+- código e documentação são montados por bind mount.
+
+## 3. Subir Produção
+
+```bash
+docker compose --env-file .env -f compose.prod.yml up --build -d
+```
+
+Atalhos:
+
+```bash
+uv run task compose_prod_up
+uv run task compose_prod_down
+```
+
+Na produção:
+
+- `api` usa o target `api` do `Dockerfile.prod`;
+- `docs` usa o target `docs` do `Dockerfile.prod`;
+- a documentação é gerada com `mkdocs build --strict` e servida por Nginx;
+- não há bind mount de código.
 
 Credenciais locais do PostgreSQL:
 
@@ -52,7 +98,7 @@ RUSTFS_ACCESS_KEY=rustfsadmin
 RUSTFS_SECRET_KEY=rustfsadmin
 ```
 
-## 3. Validar saúde
+## 4. Validar saúde
 
 ```bash
 curl "http://localhost:8000/health"
@@ -64,7 +110,14 @@ Resposta esperada:
 {"status":"ok"}
 ```
 
-## 4. Cadastrar uma empresa
+Abra também:
+
+```text
+http://localhost:8001
+http://localhost:9001
+```
+
+## 5. Cadastrar uma empresa
 
 ```bash
 curl -X POST "http://localhost:8000/api/companies" \
@@ -77,7 +130,7 @@ curl -X POST "http://localhost:8000/api/companies" \
   }'
 ```
 
-## 5. Rodar ingestão e extração
+## 6. Rodar ingestão e extração
 
 ```bash
 curl -X POST "http://localhost:8000/api/ingestion/run"
@@ -85,7 +138,7 @@ curl -X POST "http://localhost:8000/api/ingestion/run"
 
 O fluxo baixa PDFs novos, calcula SHA-256, ignora duplicados, grava o arquivo no RustFS e chama a OpenAI para extrair métricas estruturadas.
 
-## 6. Consultar resultados
+## 7. Consultar resultados
 
 ```bash
 curl "http://localhost:8000/api/documents"
@@ -93,7 +146,7 @@ curl "http://localhost:8000/api/metrics"
 curl "http://localhost:8000/api/conjuntura?empresa=MRV&ano=2025&trimestre=3"
 ```
 
-## 7. Modo contínuo
+## 8. Modo contínuo
 
 No `.env`, habilite:
 
@@ -105,19 +158,19 @@ INGESTION_POLL_INTERVAL_MINUTES=1440
 Depois reinicie:
 
 ```bash
-docker compose --env-file .env up --build
+docker compose --env-file .env -f compose.dev.yml up --build
 ```
 
-## 8. Parar e limpar
+## 9. Parar e limpar
 
 Parar containers:
 
 ```bash
-docker compose down
+docker compose --env-file .env -f compose.dev.yml down
 ```
 
 Parar e remover volumes persistidos:
 
 ```bash
-docker compose down -v
+docker compose --env-file .env -f compose.dev.yml down -v
 ```

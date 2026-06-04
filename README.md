@@ -73,21 +73,28 @@ Edite `.env` e preencha:
 OPENAI_API_KEY=sk-...
 ```
 
-Suba API + PostgreSQL + RustFS:
+Suba API + PostgreSQL + RustFS + MkDocs em desenvolvimento:
 
 ```bash
-docker compose --env-file .env up --build
+docker compose --env-file .env -f compose.dev.yml up --build
 ```
 
 Serviços:
 
 - API: `http://localhost:8000`
 - Swagger/OpenAPI: `http://localhost:8000/docs`
+- MkDocs Material: `http://localhost:8001`
 - PostgreSQL: `localhost:5432`
 - RustFS S3 API: `http://localhost:9000`
 - RustFS Console: `http://localhost:9001`
 
-O compose usa PostgreSQL para o catálogo relacional, `STORAGE_BACKEND=rustfs` e grava objetos no bucket `uda-documents`.
+Para produção:
+
+```bash
+docker compose --env-file .env -f compose.prod.yml up --build -d
+```
+
+Os composes usam PostgreSQL para o catálogo relacional, `STORAGE_BACKEND=rustfs`, gravam objetos no bucket `uda-documents` e sobem a documentação junto da API.
 
 ## Executar servidor
 

@@ -40,6 +40,7 @@ Thumbs.db
 # Local storage and artifacts
 data/*
 !data/.gitkeep
+site/
 
 # Test reports
 junit.xml

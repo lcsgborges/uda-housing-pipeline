@@ -117,10 +117,10 @@ cp .env.example .env
 
 2. Preencher `OPENAI_API_KEY` no `.env`.
 
-3. Subir API + RustFS:
+3. Subir API + PostgreSQL + RustFS + MkDocs:
 
 ```bash
-docker compose --env-file .env up --build
+docker compose --env-file .env -f compose.dev.yml up --build
 ```
 
 4. Validar:
@@ -132,7 +132,8 @@ curl "http://127.0.0.1:8000/health"
 Endpoints úteis:
 
 - API: `http://127.0.0.1:8000`
-- Docs: `http://127.0.0.1:8000/docs`
+- Swagger/OpenAPI: `http://127.0.0.1:8000/docs`
+- MkDocs: `http://127.0.0.1:8001`
 - RustFS S3 API: `http://127.0.0.1:9000`
 - RustFS Console: `http://127.0.0.1:9001`
 
