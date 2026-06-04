@@ -43,21 +43,9 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 
 ## Arquitetura
 
-```text
-Fonte RI / PDF
-    |
-    v
-Ingestão -> download -> hash -> storage
-    |
-    v
-Parsing PDF -> chunking/full scan -> LLM Structured Outputs
-    |
-    v
-Contrato Pydantic -> catálogo de métricas -> persistência
-    |
-    v
-metrics + data_lineage -> API REST -> conjuntura
-```
+![Pipeline UDA — Fluxo](docs/assets/pipeline.png)
+
+> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), extração (PDF parser, chunking, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
 
 Módulos principais:
 
