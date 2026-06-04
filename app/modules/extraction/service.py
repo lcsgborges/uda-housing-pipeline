@@ -122,10 +122,12 @@ class ExtractionService:
         for item in metrics:
             metric_name = canonical_metric_name(item.metric_name)
             definition = find_metric_definition(metric_name)
-            unit = item.unit or (definition.default_unit if definition else None)
-            currency = item.currency
-            if currency is None and unit != "%":
-                currency = definition.default_currency if definition else None
+            unit, currency = _normalize_unit_and_currency(
+                unit=item.unit,
+                currency=item.currency,
+                default_unit=definition.default_unit if definition else None,
+                default_currency=definition.default_currency if definition else None,
+            )
             metric = Metric(
                 company_id=document.company_id,
                 document_id=document.id,
@@ -212,3 +214,21 @@ def _format_chunk_for_llm(chunk: Chunk) -> str:
         f"[Página {chunk.page} | chunk {chunk.ordinal} | score {chunk.score}]"
         f"{heading}{tags}\n{chunk.text}"
     )
+
+
+def _normalize_unit_and_currency(
+    *,
+    unit: str | None,
+    currency: str | None,
+    default_unit: str | None,
+    default_currency: str | None,
+) -> tuple[str | None, str | None]:
+    normalized_currency = currency
+    normalized_unit = unit
+    if unit and unit.upper() in {"BRL", "USD"}:
+        normalized_currency = normalized_currency or unit.upper()
+        normalized_unit = default_unit
+    normalized_unit = normalized_unit or default_unit
+    if normalized_currency is None and normalized_unit != "%":
+        normalized_currency = default_currency
+    return normalized_unit, normalized_currency
