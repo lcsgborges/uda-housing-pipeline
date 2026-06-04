@@ -4,27 +4,9 @@
 
 A aplicação é uma API FastAPI com módulos de domínio separados por responsabilidade. O banco relacional guarda catálogo, status de processamento, métricas e linhagem. O storage guarda os arquivos baixados localmente ou em RustFS compatível com S3.
 
-```text
-Fontes RI / PDFs
-      |
-      v
-Ingestion: scraper, downloader, hash
-      |
-      v
-Storage: local ou RustFS        PostgreSQL: documents
-      |                                  |
-      v                                  v
-Extraction: PDF parser -> chunking -> LLM Structured Outputs
-      |
-      v
-Pydantic contract -> metric catalog -> persistence
-      |
-      v
-PostgreSQL: metrics + data_lineage
-      |
-      v
-FastAPI: metrics, documents, conjuntura
-```
+![Pipeline UDA — Fluxo](../assets/pipeline.png)
+
+> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), extração (PDF parser, chunking, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
 
 ## Camadas
 

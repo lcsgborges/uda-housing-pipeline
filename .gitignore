@@ -53,3 +53,6 @@ logs/
 # Docker/local overrides
 compose.override.yml
 docker-compose.override.yml
+
+# Local scratch files
+.scratch/
