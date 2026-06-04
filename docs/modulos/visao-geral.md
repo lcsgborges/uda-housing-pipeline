@@ -38,6 +38,7 @@ Registro da origem de cada métrica extraída.
 
 Abstração de object storage local ou S3 compatível.
 
-## `dags` e `app/pipelines`
+## Scheduler Interno
 
-Integração com Airflow para orquestrar ingestão e extração em lote.
+Orquestra ingestão de novidades e extração em lote diariamente às 02:00 quando
+`ENABLE_INGESTION_SCHEDULER=true`.

@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 30
     env:
       APP_ENV: test
-      LLM_PROVIDER: fake
+      LLM_PROVIDER: ollama
       STORAGE_BACKEND: local
       DOCUMENTS_DIR: /tmp/uda-test-documents
       TESTCONTAINERS_RYUK_DISABLED: "true"

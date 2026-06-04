@@ -119,6 +119,19 @@ class ExtractionService:
             raise
         return {"selected": len(docs), "processed": processed, "failed": failed}
 
+    async def process_all_pending_documents(self, batch_size: int | None = None) -> dict:
+        """Processa todos os documentos pendentes em lotes até esgotar a fila."""
+        totals = {"batches": 0, "selected": 0, "processed": 0, "failed": 0}
+        while True:
+            result = await self.process_pending_documents_batch(batch_size=batch_size)
+            if result["selected"] == 0:
+                break
+            totals["batches"] += 1
+            totals["selected"] += result["selected"]
+            totals["processed"] += result["processed"]
+            totals["failed"] += result["failed"]
+        return totals
+
     async def _persist_extraction(self, *, document: Document, metrics: list) -> None:
         """Persiste métricas normalizadas e seus registros de linhagem."""
         metric_rows: list[Metric] = []
@@ -161,9 +174,7 @@ class ExtractionService:
                     file_hash=document.file_hash or "",
                     source_page=metric.source_page,
                     source_excerpt=metric.source_excerpt,
-                    extraction_model=self.settings.openai_model
-                    if self.settings.llm_provider == "openai"
-                    else "fake-model",
+                    extraction_model=_extraction_model_name(self.settings),
                     extraction_prompt_version=self.settings.extraction_prompt_version,
                     extracted_at=utc_now(),
                 )
@@ -241,3 +252,13 @@ def _normalize_unit_and_currency(
     if normalized_currency is None and normalized_unit != "%":
         normalized_currency = default_currency
     return normalized_unit, normalized_currency
+
+
+def _extraction_model_name(settings) -> str:
+    """Resolve o nome do modelo usado na linhagem conforme o provider."""
+    provider = settings.llm_provider.lower()
+    if provider == "openai":
+        return settings.openai_model
+    if provider == "ollama":
+        return settings.ollama_model
+    return provider

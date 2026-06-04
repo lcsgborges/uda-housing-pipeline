@@ -28,7 +28,7 @@ A pilha escolhida é solução nativa:
 
 - `PyMuPDF` para parsing;
 - motor próprio de chunking semântico;
-- OpenAI Responses API para extração;
+- Ollama local ou OpenAI Responses API para extração;
 - `Pydantic` como contrato de saída estruturada.
 
 O prompt instrui o modelo a:
@@ -62,7 +62,7 @@ Validações relevantes:
 - `source_page`, quando presente, precisa ser positiva;
 - campos textuais possuem limites de tamanho.
 
-Se a OpenAI retornar um payload fora do contrato, a validação falha antes de gravar no banco.
+Se a LLM retornar um payload fora do contrato, a validação falha antes de gravar no banco.
 
 ## C. Camada de serviço
 

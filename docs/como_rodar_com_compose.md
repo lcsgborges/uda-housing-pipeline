@@ -19,18 +19,20 @@ Este projeto possui stacks separadas para desenvolvimento e produção. As duas 
 cp .env.example .env
 ```
 
-Edite `.env` e preencha:
+Para usar Ollama local, mantenha ou ajuste:
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+```
+
+Para usar OpenAI, preencha:
 
 ```bash
 OPENAI_API_KEY=sk-...
 LLM_PROVIDER=openai
 OPENAI_MODEL=gpt-4.1-mini
-```
-
-Para rodar sem custo de API durante desenvolvimento:
-
-```bash
-LLM_PROVIDER=fake
 ```
 
 Portas podem ser alteradas no `.env`:
@@ -136,7 +138,7 @@ curl -X POST "http://localhost:8000/api/companies" \
 curl -X POST "http://localhost:8000/api/ingestion/run"
 ```
 
-O fluxo baixa PDFs novos, calcula SHA-256, ignora duplicados, grava o arquivo no RustFS e chama a OpenAI para extrair métricas estruturadas.
+O fluxo baixa PDFs novos, calcula SHA-256, ignora duplicados, grava o arquivo no RustFS e extrai métricas estruturadas com o provider configurado. Com OpenAI, os documentos pendentes são agrupados por lote; com Ollama, são processados sequencialmente no servidor local.
 
 ## 7. Consultar resultados
 
@@ -146,13 +148,15 @@ curl "http://localhost:8000/api/metrics"
 curl "http://localhost:8000/api/conjuntura?empresa=MRV&ano=2025&trimestre=3"
 ```
 
-## 8. Modo contínuo
+## 8. Scheduler diário
 
 No `.env`, habilite:
 
 ```bash
 ENABLE_INGESTION_SCHEDULER=true
-INGESTION_POLL_INTERVAL_MINUTES=1440
+INGESTION_SCHEDULE_HOUR=2
+INGESTION_SCHEDULE_MINUTE=0
+SCHEDULER_TIMEZONE=America/Sao_Paulo
 ```
 
 Depois reinicie:

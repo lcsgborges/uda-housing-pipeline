@@ -1,15 +1,12 @@
 # Housing Data Intelligence
 
-Pipeline UDA para coletar documentos não estruturados do mercado habitacional, extrair métricas com LLM, validar a saída por contrato Pydantic e disponibilizar dados estruturados para análise de conjuntura.
+Pipeline UDA (Unstructured Data Analysis) para coletar documentos não estruturados do mercado habitacional, extrair métricas com LLM, validar a saída por contrato Pydantic e disponibilizar dados estruturados para análise de conjuntura.
 
 O projeto foi desenhado para transformar PDFs de Relações com Investidores, resultados trimestrais, prévias operacionais e boletins de conjuntura em dados relacionais com rastreabilidade de origem.
 
 ## Autoria e Repositório
 
 - Autor: Lucas Guimarães Borges
-- E-mail: [lcsgborges@gmail.com](mailto:lcsgborges@gmail.com)
-- GitHub: [lcsgborges](https://github.com/lcsgborges)
-- Repositório: [lcsgborges/uda-housing-pipeline](https://github.com/lcsgborges/uda-housing-pipeline)
 
 ## Objetivo
 
@@ -19,7 +16,7 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 - idempotência por hash SHA-256;
 - parsing de PDF com PyMuPDF;
 - seleção de contexto por full scan ou chunking semântico;
-- extração estruturada via OpenAI Responses API ou cliente fake;
+- extração estruturada via Ollama local ou OpenAI Responses API em lote;
 - validação de saída com Pydantic;
 - normalização por catálogo canônico de métricas;
 - persistência em PostgreSQL;
@@ -36,6 +33,7 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 - Pydantic v2
 - PyMuPDF
 - OpenAI SDK
+- Ollama
 - PostgreSQL
 - RustFS
 - MkDocs Material
@@ -67,13 +65,12 @@ Módulos principais:
 | --- | --- |
 | `app/core` | Configuração, banco, logging e utilitários. |
 | `app/modules/companies` | Cadastro de empresas e fontes RI. |
-| `app/modules/ingestion` | Scraping, download, hash, idempotência e gatilho de extração. |
+| `app/modules/ingestion` | Scraping, download, hash, idempotência e scheduler diário. |
 | `app/modules/extraction` | Parsing, chunking, cliente LLM e persistência da extração. |
 | `app/modules/documents` | Catálogo e status de documentos. |
 | `app/modules/metrics` | Métricas, catálogo canônico e endpoint de conjuntura. |
 | `app/modules/lineage` | Linhagem dos dados extraídos. |
 | `app/modules/storage` | Storage local ou S3-compatible. |
-| `dags` | DAG Airflow para ingestão e extração em lote. |
 
 ## Documentação
 
@@ -120,26 +117,37 @@ Variáveis mais importantes:
 | --- | --- |
 | `DATABASE_URL` | URL SQLAlchemy async do PostgreSQL. |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Credenciais do PostgreSQL no Compose. |
-| `LLM_PROVIDER` | `fake` para desenvolvimento ou `openai` para extração real. |
+| `LLM_PROVIDER` | `ollama` para execução local ou `openai` para extração remota em lote. |
 | `OPENAI_API_KEY` | Chave da OpenAI quando `LLM_PROVIDER=openai`. |
 | `OPENAI_MODEL` | Modelo usado pelo cliente OpenAI. |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Endpoint e modelo usados quando `LLM_PROVIDER=ollama`. |
+| `ENABLE_INGESTION_SCHEDULER` | Habilita o ciclo diário junto da API. |
+| `INGESTION_SCHEDULE_HOUR`, `INGESTION_SCHEDULE_MINUTE` | Horário diário do ciclo; padrão `02:00`. |
+| `SCHEDULER_TIMEZONE` | Timezone do scheduler; padrão `America/Sao_Paulo`. |
 | `STORAGE_BACKEND` | `local` ou `rustfs`. |
 | `RUSTFS_*` | Configurações do RustFS. |
 | `API_PORT`, `DOCS_PORT`, `POSTGRES_PORT` | Portas publicadas pelos composes. |
 
-Para testar sem custo de API:
+Para extração local sem custo de API externa:
 
 ```env
-LLM_PROVIDER=fake
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
 ```
 
-Para extração real:
+Para extração com OpenAI:
 
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
 ```
+
+Quando `LLM_PROVIDER=openai`, documentos pendentes são agrupados por
+`EXTRACTION_BATCH_SIZE` para reduzir overhead de prompt e chamadas. Quando
+`LLM_PROVIDER=ollama`, a extração é local e cada documento do lote é processado
+sequencialmente.
 
 ## Docker Compose
 
@@ -226,13 +234,13 @@ Suba a API:
 uv run uvicorn app.main:app --reload
 ```
 
-Com scheduler contínuo:
+Com scheduler diário às 02:00:
 
 ```bash
 ENABLE_INGESTION_SCHEDULER=true uv run uvicorn app.main:app --reload
 ```
 
-Executar ingestão via CLI:
+Executar o ciclo diário sob demanda via CLI:
 
 ```bash
 uv run python -m app.modules.ingestion.scheduler
@@ -245,9 +253,9 @@ uv run python -m app.modules.ingestion.scheduler
 | `GET /health` | Saúde da API. |
 | `POST /api/companies` | Cadastrar empresa. |
 | `GET /api/companies` | Listar empresas. |
-| `POST /api/ingestion/run` | Rodar ingestão geral. |
-| `POST /api/ingestion/run/{company_id}` | Rodar ingestão por empresa. |
-| `POST /api/ingestion/extract-batch` | Extrair documentos pendentes em lote. |
+| `POST /api/ingestion/run` | Rodar ciclo geral: ingestão de novidades e extração em lote. |
+| `POST /api/ingestion/run/{company_id}` | Rodar ciclo por empresa. |
+| `POST /api/ingestion/extract-batch` | Extrair um lote de documentos pendentes. |
 | `GET /api/documents` | Listar documentos. |
 | `GET /api/metrics` | Listar métricas brutas. |
 | `GET /api/conjuntura` | Consultar camada Gold de conjuntura. |
@@ -329,7 +337,7 @@ Em pull requests, o workflow apenas valida lint, testes e build da documentaçã
 ## Limitações Conhecidas
 
 - Scraper usa heurísticas gerais para links de PDF.
-- Extração real depende de chave OpenAI ativa.
+- OpenAI depende de chave ativa; Ollama depende do servidor local e do modelo baixado.
 - Chunking ainda é semântico simples, sem embeddings vetoriais.
 - Parser de tabelas avançadas ainda não está habilitado.
 

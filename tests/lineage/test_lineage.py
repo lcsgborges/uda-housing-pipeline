@@ -55,7 +55,7 @@ async def test_lineage_repository_create_many_e_schema(db_session):
                 file_hash=document.file_hash,
                 source_page=1,
                 source_excerpt="Vendas líquidas 10",
-                extraction_model="fake-model",
+                extraction_model="llama3.1",
                 extraction_prompt_version="v1",
                 extracted_at=utc_now(),
             )

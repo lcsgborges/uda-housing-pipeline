@@ -22,7 +22,7 @@ O projeto transforma PDFs de Relações com Investidores e boletins de conjuntur
 - Normaliza métricas por vocabulário controlado.
 - Persiste métricas, documentos e linhagem em PostgreSQL.
 - Expõe APIs para consulta de empresas, documentos, métricas e conjuntura.
-- Orquestra ingestão e extração por API, scheduler ou DAG do Airflow.
+- Orquestra ingestão e extração por API ou scheduler interno diário.
 
 ## Caminho Recomendado
 

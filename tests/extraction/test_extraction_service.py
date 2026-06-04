@@ -8,6 +8,7 @@ from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.extraction.service import (
     ExtractionService,
+    _extraction_model_name,
     _format_chunk_for_llm,
     _is_storage_uri,
     _normalize_unit_and_currency,
@@ -34,7 +35,7 @@ class _FakeParser:
 
 class _FakeStorage:
     def read(self, uri):
-        return b"%PDF fake"
+        return b"%PDF test"
 
 
 class _BatchLLM:
@@ -194,6 +195,33 @@ async def test_process_pending_documents_batch_sem_documentos(db_session):
 
 
 @pytest.mark.asyncio
+async def test_process_all_pending_documents_agrega_lotes(db_session, monkeypatch):
+    service = ExtractionService(db_session)
+    results = [
+        {"selected": 2, "processed": 2, "failed": 0},
+        {"selected": 1, "processed": 0, "failed": 1},
+        {"selected": 0, "processed": 0, "failed": 0},
+    ]
+
+    async def fake_process_pending_documents_batch(batch_size=None):
+        assert batch_size == 3
+        return results.pop(0)
+
+    monkeypatch.setattr(
+        service,
+        "process_pending_documents_batch",
+        fake_process_pending_documents_batch,
+    )
+
+    assert await service.process_all_pending_documents(batch_size=3) == {
+        "batches": 2,
+        "selected": 3,
+        "processed": 2,
+        "failed": 1,
+    }
+
+
+@pytest.mark.asyncio
 async def test_process_pending_documents_batch_marca_nao_retornado_como_failed(db_session):
     company, first = await _create_company_and_document(db_session)
     second = Document(
@@ -271,7 +299,7 @@ def test_parse_document_lida_com_path_storage_uri_e_sem_path():
     assert service._parse_document(path_doc).pages_text
     assert service._parse_document(storage_doc).pages_text
     assert service.parser.parsed_paths == ["/tmp/doc.pdf"]
-    assert service.parser.parsed_bytes == [b"%PDF fake"]
+    assert service.parser.parsed_bytes == [b"%PDF test"]
     with pytest.raises(ValueError):
         service._parse_document(missing_doc)
 
@@ -310,3 +338,24 @@ def test_normalize_unit_and_currency_aplica_defaults_quando_sem_moeda():
 
     assert (unit, currency) == ("R$", "BRL")
     assert (percent_unit, percent_currency) == ("%", None)
+
+
+def test_extraction_model_name_resolve_provider():
+    assert (
+        _extraction_model_name(
+            SimpleNamespace(llm_provider="openai", openai_model="gpt", ollama_model="llama")
+        )
+        == "gpt"
+    )
+    assert (
+        _extraction_model_name(
+            SimpleNamespace(llm_provider="ollama", openai_model="gpt", ollama_model="llama")
+        )
+        == "llama"
+    )
+    assert (
+        _extraction_model_name(
+            SimpleNamespace(llm_provider="custom", openai_model="gpt", ollama_model="llama")
+        )
+        == "custom"
+    )

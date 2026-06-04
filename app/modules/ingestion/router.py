@@ -22,28 +22,31 @@ ServiceDep = Annotated[IngestionService, Depends(get_service)]
 
 @router.post(
     "/run",
-    summary="Executar ingestão",
+    summary="Executar ciclo de ingestão e extração",
     description=(
-        "Executa a descoberta, download, deduplicação e extração dos documentos "
-        "das empresas ativas."
+        "Descobre e baixa documentos novos das empresas ativas, depois processa "
+        "todos os documentos pendentes em lotes."
     ),
 )
 async def run_ingestion(service: ServiceDep):
-    """Endpoint para executar ingestão de todas as empresas ativas."""
-    return await service.run()
+    """Endpoint para executar o ciclo de ingestão e extração de todas as empresas."""
+    return await service.run_scheduled_cycle()
 
 
 @router.post(
     "/run/{company_id}",
-    summary="Executar ingestão de uma empresa",
-    description="Executa a ingestão apenas para uma empresa ativa.",
+    summary="Executar ciclo de uma empresa",
+    description=(
+        "Descobre e baixa documentos novos de uma empresa ativa, depois processa "
+        "documentos pendentes em lotes."
+    ),
 )
 async def run_ingestion_company(
     company_id: CompanyId,
     service: ServiceDep,
 ):
-    """Endpoint para executar ingestão de uma empresa específica."""
-    return await service.run(company_id=company_id)
+    """Endpoint para executar o ciclo de ingestão e extração de uma empresa."""
+    return await service.run_scheduled_cycle(company_id=company_id)
 
 
 @router.post(

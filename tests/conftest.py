@@ -19,6 +19,7 @@ os.environ["APP_ENV"] = "test"
 os.environ["DATABASE_URL"] = postgres.get_connection_url()
 os.environ["STORAGE_BACKEND"] = "local"
 os.environ["DOCUMENTS_DIR"] = "/tmp/uda-test-documents"
+os.environ["LLM_PROVIDER"] = "ollama"
 _postgres_stopped = False
 
 

@@ -45,7 +45,7 @@ curl "http://localhost:8000/api/conjuntura?empresa=MRV&ano=2025&trimestre=3"
 
 ## Scheduler
 
-Para executar ingestão recorrente junto da API:
+Para executar ingestão e extração diária junto da API:
 
 ```bash
 ENABLE_INGESTION_SCHEDULER=true uv run uvicorn app.main:app --reload

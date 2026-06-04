@@ -1,6 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 
+import httpx
 from openai import OpenAI
 
 from app.core.config import get_settings
@@ -51,7 +52,13 @@ class BaseLLMClient(ABC):
         raise NotImplementedError
 
 
-class FakeLLMClient(BaseLLMClient):
+class OllamaLLMClient(BaseLLMClient):
+    def __init__(self, *, base_url: str, model: str, timeout: int):
+        """Inicializa o cliente Ollama local sem fazer chamada de rede."""
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.timeout = timeout
+
     def extract_metrics(
         self,
         *,
@@ -61,41 +68,21 @@ class FakeLLMClient(BaseLLMClient):
         year: int | None,
         quarter: int | None,
     ) -> ExtractedMetricBatch:
-        """Retorna métricas determinísticas para testes e desenvolvimento local."""
-        _ = (original_url, context)
-        return ExtractedMetricBatch(
-            metrics=[
-                {
-                    "company": company,
-                    "period_year": year,
-                    "period_quarter": quarter,
-                    "metric_name": "vendas_liquidas",
-                    "metric_category": "operacional",
-                    "value": 123456789.0,
-                    "unit": "R$",
-                    "currency": "BRL",
-                    "source_page": 1,
-                    "source_excerpt": "Vendas líquidas totalizaram R$ 123,4 milhões no trimestre.",
-                    "confidence": 0.9,
-                },
-                {
-                    "company": company,
-                    "period_year": year,
-                    "period_quarter": quarter,
-                    "metric_name": "lucro_liquido",
-                    "metric_category": "financeiro",
-                    "value": None,
-                    "unit": "R$",
-                    "currency": "BRL",
-                    "source_page": 2,
-                    "source_excerpt": "Não identificado no documento.",
-                    "confidence": 0.6,
-                },
-            ]
+        """Extrai métricas de um documento usando a API local do Ollama."""
+        response = self._chat(
+            user_prompt=_build_single_document_prompt(
+                company=company,
+                original_url=original_url,
+                context=context,
+                year=year,
+                quarter=quarter,
+            ),
+            schema=ExtractedMetricBatch.model_json_schema(),
         )
+        return ExtractedMetricBatch.model_validate_json(response)
 
     def extract_metrics_batch(self, payloads: list[dict]) -> ExtractedBatchResponse:
-        """Aplica a extração fake para cada payload preservando document_ref."""
+        """Processa payloads sequencialmente no Ollama, sem chamada batch remota."""
         docs = []
         for payload in payloads:
             docs.append(
@@ -111,6 +98,26 @@ class FakeLLMClient(BaseLLMClient):
                 }
             )
         return ExtractedBatchResponse.model_validate({"documents": docs})
+
+    def _chat(self, *, user_prompt: str, schema: dict) -> str:
+        """Envia uma conversa ao Ollama e retorna o conteúdo textual da resposta."""
+        payload = {
+            "model": self.model,
+            "stream": False,
+            "format": schema,
+            "options": {"temperature": 0},
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+        }
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.post(f"{self.base_url}/api/chat", json=payload)
+            response.raise_for_status()
+        content = response.json().get("message", {}).get("content")
+        if not content:
+            raise ValueError("Ollama não retornou conteúdo para o contrato semântico.")
+        return content
 
 
 class OpenAILLMClient(BaseLLMClient):
@@ -175,9 +182,16 @@ class OpenAILLMClient(BaseLLMClient):
 def build_llm_client() -> BaseLLMClient:
     """Constrói o cliente LLM conforme o provider configurado."""
     settings = get_settings()
-    if settings.llm_provider.lower() in {"openai", "chatgpt"}:
+    provider = settings.llm_provider.lower()
+    if provider in {"openai", "chatgpt"}:
         return OpenAILLMClient(api_key=settings.openai_api_key, model=settings.openai_model)
-    return FakeLLMClient()
+    if provider == "ollama":
+        return OllamaLLMClient(
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            timeout=settings.request_timeout_seconds,
+        )
+    raise ValueError("LLM_PROVIDER deve ser 'openai' ou 'ollama'.")
 
 
 def _build_single_document_prompt(

@@ -16,6 +16,12 @@ class _FakeIngestionService:
             "ignored_duplicates": 1,
         }
 
+    async def run_scheduled_cycle(self, company_id=None):
+        return {
+            "ingestion": await self.run(company_id=company_id),
+            "extraction": {"batches": 1, "selected": 2, "processed": 2, "failed": 0},
+        }
+
 
 def test_ingestion_router_executa_fluxos(client):
     from app.main import app
@@ -30,9 +36,9 @@ def test_ingestion_router_executa_fluxos(client):
         app.dependency_overrides.pop(get_service, None)
 
     assert run_all.status_code == 200
-    assert run_all.json()["companies"] == 2
+    assert run_all.json()["ingestion"]["companies"] == 2
     assert run_company.status_code == 200
-    assert run_company.json()["companies"] == 1
+    assert run_company.json()["ingestion"]["companies"] == 1
     assert extract_batch.status_code == 200
     assert extract_batch.json() == {"selected": 4, "processed": 4, "failed": 0}
 

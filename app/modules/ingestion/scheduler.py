@@ -11,39 +11,42 @@ logger = logging.getLogger(__name__)
 _scheduler: BackgroundScheduler | None = None
 
 
-async def run_ingestion(company_id: int | None = None) -> dict:
-    """Executa a ingestão em uma sessão assíncrona independente."""
+async def run_daily_cycle(company_id: int | None = None) -> dict:
+    """Executa o ciclo diário de ingestão e extração em sessão independente."""
     async with SessionLocal() as session:
         service = IngestionService(session)
-        return await service.run(company_id=company_id)
+        return await service.run_scheduled_cycle(company_id=company_id)
 
 
-def run_ingestion_sync(company_id: int | None = None) -> dict:
-    """Adaptador síncrono para executar ingestão em jobs do APScheduler."""
-    return asyncio.run(run_ingestion(company_id=company_id))
+def run_daily_cycle_sync(company_id: int | None = None) -> dict:
+    """Adaptador síncrono para executar o ciclo diário no APScheduler."""
+    return asyncio.run(run_daily_cycle(company_id=company_id))
 
 
 def start_scheduler() -> BackgroundScheduler:
-    """Inicia o scheduler de polling de ingestão quando ainda não está ativo."""
+    """Inicia o scheduler diário de ingestão e extração quando inativo."""
     global _scheduler
     if _scheduler and _scheduler.running:
         return _scheduler
 
     settings = get_settings()
-    scheduler = BackgroundScheduler(timezone="UTC")
+    scheduler = BackgroundScheduler(timezone=settings.scheduler_timezone)
     scheduler.add_job(
-        run_ingestion_sync,
-        "interval",
-        minutes=settings.ingestion_poll_interval_minutes,
-        id="ingestion_polling",
+        run_daily_cycle_sync,
+        "cron",
+        hour=settings.ingestion_schedule_hour,
+        minute=settings.ingestion_schedule_minute,
+        id="daily_ingestion_extraction",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
     )
     scheduler.start()
     logger.info(
-        "Scheduler de ingestão iniciado (intervalo=%s min)",
-        settings.ingestion_poll_interval_minutes,
+        "Scheduler diário iniciado (horário=%02d:%02d, timezone=%s)",
+        settings.ingestion_schedule_hour,
+        settings.ingestion_schedule_minute,
+        settings.scheduler_timezone,
     )
     _scheduler = scheduler
     return scheduler
@@ -59,5 +62,5 @@ def stop_scheduler() -> None:
 
 
 if __name__ == "__main__":
-    result = run_ingestion_sync()
+    result = run_daily_cycle_sync()
     print(result)

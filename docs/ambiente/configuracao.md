@@ -5,7 +5,8 @@
 - Python 3.12 ou superior.
 - `uv`.
 - Docker, para PostgreSQL local, RustFS e testes com Testcontainers.
-- Chave OpenAI, se for usar extração real.
+- Chave OpenAI, se for usar extração remota.
+- Ollama local, se for usar `LLM_PROVIDER=ollama`.
 
 ## Instalação
 
@@ -31,25 +32,31 @@ Variáveis principais:
 | `POSTGRES_PORT` | Porta publicada do PostgreSQL. |
 | `RUSTFS_API_PORT` | Porta publicada da API S3 do RustFS. |
 | `RUSTFS_CONSOLE_PORT` | Porta publicada do console RustFS. |
-| `LLM_PROVIDER` | `fake` ou `openai`. |
-| `OPENAI_API_KEY` | Chave para extração real. |
+| `LLM_PROVIDER` | `ollama` ou `openai`. |
+| `OPENAI_API_KEY` | Chave para extração remota com OpenAI. |
 | `OPENAI_MODEL` | Modelo usado pelo cliente OpenAI. |
+| `OLLAMA_BASE_URL` | URL do servidor Ollama. |
+| `OLLAMA_MODEL` | Modelo local usado pelo Ollama. |
 | `STORAGE_BACKEND` | `local` ou `rustfs`. |
 | `DOCUMENTS_DIR` | Diretório para storage local. |
 | `RUSTFS_*` | Configuração do storage S3 compatível. |
 | `EXTRACTION_BATCH_SIZE` | Tamanho padrão de lote. |
 | `ENABLE_INGESTION_SCHEDULER` | Habilita scheduler junto da API. |
-| `INGESTION_POLL_INTERVAL_MINUTES` | Intervalo do scheduler. |
+| `INGESTION_SCHEDULE_HOUR` | Hora diária do ciclo; padrão `2`. |
+| `INGESTION_SCHEDULE_MINUTE` | Minuto diário do ciclo; padrão `0`. |
+| `SCHEDULER_TIMEZONE` | Timezone do scheduler; padrão `America/Sao_Paulo`. |
 
 ## Modos de LLM
 
-### Desenvolvimento Sem Custo
+### Ollama Local
 
 ```env
-LLM_PROVIDER=fake
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
 ```
 
-### Extração Real
+### OpenAI em Lote
 
 ```env
 LLM_PROVIDER=openai

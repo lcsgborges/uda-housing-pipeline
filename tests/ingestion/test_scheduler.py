@@ -22,7 +22,7 @@ class _FakeIngestionService:
     def __init__(self, session):
         self.session = session
 
-    async def run(self, company_id=None):
+    async def run_scheduled_cycle(self, company_id=None):
         return {"company_id": company_id}
 
 
@@ -45,20 +45,20 @@ class _FakeScheduler:
 
 
 @pytest.mark.asyncio
-async def test_run_ingestion_usa_sessionlocal_e_service(monkeypatch):
+async def test_run_daily_cycle_usa_sessionlocal_e_service(monkeypatch):
     monkeypatch.setattr(scheduler_module, "SessionLocal", _FakeSessionLocal)
     monkeypatch.setattr(scheduler_module, "IngestionService", _FakeIngestionService)
 
-    assert await scheduler_module.run_ingestion(company_id=42) == {"company_id": 42}
+    assert await scheduler_module.run_daily_cycle(company_id=42) == {"company_id": 42}
 
 
-def test_run_ingestion_sync(monkeypatch):
-    async def fake_run_ingestion(company_id=None):
+def test_run_daily_cycle_sync(monkeypatch):
+    async def fake_run_daily_cycle(company_id=None):
         return {"company_id": company_id}
 
-    monkeypatch.setattr(scheduler_module, "run_ingestion", fake_run_ingestion)
+    monkeypatch.setattr(scheduler_module, "run_daily_cycle", fake_run_daily_cycle)
 
-    assert scheduler_module.run_ingestion_sync(company_id=7) == {"company_id": 7}
+    assert scheduler_module.run_daily_cycle_sync(company_id=7) == {"company_id": 7}
 
 
 def test_start_scheduler_reusa_ativo_e_stop_desliga(monkeypatch):
@@ -67,7 +67,11 @@ def test_start_scheduler_reusa_ativo_e_stop_desliga(monkeypatch):
     monkeypatch.setattr(
         scheduler_module,
         "get_settings",
-        lambda: SimpleNamespace(ingestion_poll_interval_minutes=15),
+        lambda: SimpleNamespace(
+            scheduler_timezone="America/Sao_Paulo",
+            ingestion_schedule_hour=2,
+            ingestion_schedule_minute=0,
+        ),
     )
 
     created = scheduler_module.start_scheduler()
@@ -75,8 +79,10 @@ def test_start_scheduler_reusa_ativo_e_stop_desliga(monkeypatch):
 
     assert created is reused
     assert created.running is True
-    assert created.jobs[0][1]["minutes"] == 15
-    assert created.jobs[0][1]["id"] == "ingestion_polling"
+    assert created.timezone == "America/Sao_Paulo"
+    assert created.jobs[0][1]["hour"] == 2
+    assert created.jobs[0][1]["minute"] == 0
+    assert created.jobs[0][1]["id"] == "daily_ingestion_extraction"
 
     scheduler_module.stop_scheduler()
 

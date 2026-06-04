@@ -69,6 +69,14 @@ class IngestionService:
             "ignored_duplicates": ignored,
         }
 
+    async def run_scheduled_cycle(self, company_id: int | None = None) -> dict:
+        """Executa ciclo diário: ingere novidades e processa pendências em lotes."""
+        ingestion = await self.run(company_id=company_id, extract_after_ingestion=False)
+        extraction = await self.extraction_service.process_all_pending_documents(
+            batch_size=self.settings.extraction_batch_size,
+        )
+        return {"ingestion": ingestion, "extraction": extraction}
+
     async def _ingest_link(
         self,
         company: Company,

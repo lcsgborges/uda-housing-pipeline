@@ -29,15 +29,15 @@ O módulo evita regex para extração final de valores. Regras tradicionais apar
 
 Há dois provedores:
 
-- `fake`: desenvolvimento e testes sem custo.
-- `openai`: extração real via OpenAI Responses API.
+- `ollama`: extração local, documento a documento, sem API externa.
+- `openai`: extração remota via OpenAI Responses API, agrupando documentos por lote.
 
 Configuração:
 
 ```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4.1-mini
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1
 ```
 
 ## Contrato Semântico

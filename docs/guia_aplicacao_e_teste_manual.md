@@ -17,10 +17,9 @@ A stack principal:
 - Banco: `SQLAlchemy` assíncrono com `AsyncSession`
 - Banco: `PostgreSQL` via `asyncpg`
 - Scheduler: `APScheduler`
-- Orquestração DAG: `Airflow`
 - Object storage: `RustFS` (S3-compatible) ou filesystem local
 - Parsing PDF: `PyMuPDF`
-- LLM: cliente fake (dev) ou OpenAI
+- LLM: Ollama local ou OpenAI
 - Ambiente/dependências: `uv`
 - Testes: `pytest` com `Testcontainers` para PostgreSQL efêmero
 
@@ -98,11 +97,12 @@ cp .env.example .env
 - `POSTGRES_DB=uda`
 - `POSTGRES_USER=uda`
 - `POSTGRES_PASSWORD=uda`
-- `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (extração real)
-- `LLM_PROVIDER=fake` (dev, sem custo de API)
+- `LLM_PROVIDER=ollama` + `OLLAMA_BASE_URL` + `OLLAMA_MODEL` (extração local)
+- `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (extração remota em lote)
 - `OPENAI_MODEL=gpt-4.1-mini`
-- `ENABLE_INGESTION_SCHEDULER=false` (manual) ou `true` (contínuo)
-- `INGESTION_POLL_INTERVAL_MINUTES=1440` (periodicidade do scheduler)
+- `ENABLE_INGESTION_SCHEDULER=false` (manual) ou `true` (diário)
+- `INGESTION_SCHEDULE_HOUR=2`, `INGESTION_SCHEDULE_MINUTE=0`
+- `SCHEDULER_TIMEZONE=America/Sao_Paulo`
 - `STORAGE_BACKEND=local` ou `rustfs`
 - `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_BUCKET`
 - `EXTRACTION_BATCH_SIZE=5`
@@ -243,30 +243,24 @@ Validar:
 - aumento de `ignored_duplicates`
 - ausência de reprocessamento desnecessário para o mesmo hash
 
-## 8) Modo contínuo (scheduler)
+## 8) Scheduler diário
 
-Para observação contínua de novas publicações:
+Para observação diária de novas publicações às 02:00:
 
 ```bash
 ENABLE_INGESTION_SCHEDULER=true uv run uvicorn app.main:app --reload
 ```
 
-Com isso, o job de ingestão roda automaticamente no intervalo definido por:
+Com isso, o job roda automaticamente no horário definido por:
 
-- `INGESTION_POLL_INTERVAL_MINUTES`
+- `INGESTION_SCHEDULE_HOUR`
+- `INGESTION_SCHEDULE_MINUTE`
+- `SCHEDULER_TIMEZONE`
 
-## 9) DAG do Airflow (ingestão + extração batch)
+O ciclo diário primeiro baixa documentos novos, depois processa todos os pendentes
+em lotes de `EXTRACTION_BATCH_SIZE`.
 
-A DAG já está pronta em:
-
-- `dags/uda_pipeline_dag.py`
-
-Pipeline da DAG:
-
-1. `ingest_new_documents`: descobre e baixa novos documentos sem extrair imediatamente;
-2. `extract_metrics_batch`: pega documentos `downloaded` e envia em lote para LLM.
-
-## 10) Testes automatizados
+## 9) Testes automatizados
 
 Rodar suite:
 
@@ -276,7 +270,7 @@ uv run --extra dev pytest -q
 
 Os testes usam Testcontainers e precisam de Docker disponível para subir um PostgreSQL efêmero.
 
-## 11) Problemas comuns
+## 10) Problemas comuns
 
 - `No module named asyncpg` ou `No module named testcontainers`:
   - rode `uv sync --extra dev`.
@@ -294,4 +288,4 @@ Os testes usam Testcontainers e precisam de Docker disponível para subir um Pos
   - revisar URL de RI, estrutura do site e conectividade.
 
 - `métricas vazias`:
-  - em `LLM_PROVIDER=fake`, os dados são simulados; para extração real configure OpenAI.
+  - valide se o modelo Ollama está baixado ou se a chave OpenAI está configurada.

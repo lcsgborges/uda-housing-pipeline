@@ -30,9 +30,14 @@ class _FakeStorage:
 class _FakeExtraction:
     def __init__(self):
         self.documents = []
+        self.batch_size = None
 
     async def process_document(self, document, company_name):
         self.documents.append((document, company_name))
+
+    async def process_all_pending_documents(self, batch_size=None):
+        self.batch_size = batch_size
+        return {"batches": 1, "selected": 2, "processed": 2, "failed": 0}
 
 
 @pytest.mark.parametrize(
@@ -126,6 +131,33 @@ async def test_ingestion_run_filtra_empresa_e_contabiliza_ignorados(monkeypatch,
         "processed": 0,
         "ignored_duplicates": 1,
     }
+
+
+@pytest.mark.asyncio
+async def test_ingestion_run_scheduled_cycle_ingere_sem_extrair_imediato(monkeypatch, db_session):
+    company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
+    db_session.add(company)
+    await db_session.commit()
+
+    service = IngestionService(db_session)
+    service.extraction_service = _FakeExtraction()
+
+    async def fake_ingest(company, url, title, extract_after_ingestion=True):
+        assert extract_after_ingestion is False
+        return "processed"
+
+    service.scraper = type(
+        "Scraper",
+        (),
+        {"find_pdf_links": lambda self, url: [{"url": f"{url}/doc.pdf", "title": "Prévia"}]},
+    )()
+    monkeypatch.setattr(service, "_ingest_link", fake_ingest)
+
+    result = await service.run_scheduled_cycle()
+
+    assert result["ingestion"]["processed"] == 1
+    assert result["extraction"] == {"batches": 1, "selected": 2, "processed": 2, "failed": 0}
+    assert service.extraction_service.batch_size == service.settings.extraction_batch_size
 
 
 @pytest.mark.asyncio

@@ -36,7 +36,7 @@ FastAPI: metrics, documents, conjuntura
 | Repositório | Acesso ao banco via SQLAlchemy | `app/modules/*/repository.py` |
 | Modelos | Entidades SQLAlchemy | `app/modules/*/models.py` |
 | Schemas | Entrada/saída Pydantic | `app/modules/*/schemas.py` |
-| Pipeline | Tarefas executáveis pelo Airflow | `app/pipelines`, `dags` |
+| Orquestração | Scheduler interno diário e endpoints manuais | `app/modules/ingestion` |
 
 ## Decisões Técnicas
 
@@ -52,9 +52,11 @@ O projeto usa `AsyncSession` e `asyncpg` para PostgreSQL. Isso mantém consistê
 
 Usado para validar entrada de API e, principalmente, o contrato de saída da LLM. A extração só entra no banco se aderir ao schema.
 
-### OpenAI Responses API
+### LLM Providers
 
-Usada com `responses.parse` e `text_format` para Structured Outputs. O contrato fica em `ExtractedMetricBatch` e `ExtractedBatchResponse`.
+A extração usa contrato Pydantic antes da persistência. Com `openai`, documentos
+pendentes são agrupados por lote. Com `ollama`, cada documento é enviado ao
+servidor local sequencialmente.
 
 ### RustFS / S3 Compatível
 

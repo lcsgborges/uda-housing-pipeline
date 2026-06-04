@@ -12,7 +12,7 @@ O módulo de ingestão encontra documentos em sites de RI, baixa PDFs novos, evi
 | `downloader.py` | Baixa bytes do documento. |
 | `hashing.py` | Calcula SHA-256. |
 | `service.py` | Orquestra empresa -> link -> documento -> extração. |
-| `scheduler.py` | Executa ciclo contínuo quando habilitado. |
+| `scheduler.py` | Executa ciclo diário às 02:00 quando habilitado. |
 | `router.py` | Expõe endpoints de ingestão. |
 
 ## Idempotência
@@ -37,10 +37,11 @@ POST /api/ingestion/extract-batch?batch_size=10
 
 ## Scheduler
 
-Para habilitar observação contínua junto com a API:
+Para habilitar o ciclo diário junto com a API:
 
 ```bash
 ENABLE_INGESTION_SCHEDULER=true uv run uvicorn app.main:app --reload
 ```
 
-Use `INGESTION_POLL_INTERVAL_MINUTES` para controlar o intervalo.
+Use `INGESTION_SCHEDULE_HOUR`, `INGESTION_SCHEDULE_MINUTE` e `SCHEDULER_TIMEZONE`
+para controlar o horário diário.
