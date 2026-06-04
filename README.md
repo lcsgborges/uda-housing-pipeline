@@ -1,12 +1,10 @@
 # Housing Data Intelligence
 
+> Autor: Lucas Guimarães Borges
+
 Pipeline UDA (Unstructured Data Analysis) para coletar documentos não estruturados do mercado habitacional, extrair métricas com LLM, validar a saída por contrato Pydantic e disponibilizar dados estruturados para análise de conjuntura.
 
 O projeto foi desenhado para transformar PDFs de Relações com Investidores, resultados trimestrais, prévias operacionais e boletins de conjuntura em dados relacionais com rastreabilidade de origem.
-
-## Autoria e Repositório
-
-- Autor: Lucas Guimarães Borges
 
 ## Objetivo
 
