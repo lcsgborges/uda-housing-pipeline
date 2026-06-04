@@ -27,6 +27,7 @@ jobs:
       LLM_PROVIDER: ollama
       STORAGE_BACKEND: local
       DOCUMENTS_DIR: /tmp/uda-test-documents
+      TEST_POSTGRES_IMAGE: postgres:16-alpine
       TESTCONTAINERS_RYUK_DISABLED: "true"
     steps:
       - name: Checkout
@@ -45,6 +46,9 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen --extra dev
+
+      - name: Pre-pull PostgreSQL image
+        run: docker pull postgres:16-alpine
 
       - name: Run linter
         run: uv run ruff check app tests
