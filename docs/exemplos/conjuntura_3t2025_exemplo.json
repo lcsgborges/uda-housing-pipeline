@@ -4,7 +4,7 @@
   "period_year": 2025,
   "period_quarter": 3,
   "unit": "%",
-  "source": "Balancos trimestrais das empresas",
+  "source": "Balanços trimestrais das empresas",
   "tables": [
     {
       "metric_group": "lancamentos",
@@ -115,5 +115,5 @@
       }
     }
   ],
-  "insight": "Grandes empresas continuam registrando forte expansao nos lancamentos. Vendas, entretanto, com desempenho menos favoravel em 2025, embora ainda positivo."
+  "insight": "Grandes empresas continuam registrando forte expansão nos lançamentos. Vendas, entretanto, com desempenho menos favorável em 2025, embora ainda positivo."
 }

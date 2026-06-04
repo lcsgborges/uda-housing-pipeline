@@ -4,9 +4,10 @@ from urllib.parse import urljoin
 import httpx
 from bs4 import BeautifulSoup
 
+from app.core.text import normalize_for_search
+
 KEYWORDS = [
     "prévia operacional",
-    "previa operacional",
     "resultados",
     "resultado trimestral",
     "divulgação de resultados",
@@ -29,15 +30,22 @@ class RIScraper:
 
         for anchor in soup.find_all("a", href=True):
             href = anchor["href"]
-            text = (anchor.get_text(" ", strip=True) or "").lower()
+            text = anchor.get_text(" ", strip=True) or ""
             absolute_url = urljoin(base_url, href)
             if not re.search(r"\.pdf($|\?)", absolute_url.lower()):
                 continue
-            score = self._score_link(text + " " + absolute_url.lower())
-            links.append({"url": absolute_url, "title": anchor.get_text(strip=True) or "PDF", "score": score})
+            score = self._score_link(f"{text} {absolute_url}")
+            links.append(
+                {
+                    "url": absolute_url,
+                    "title": anchor.get_text(strip=True) or "PDF",
+                    "score": score,
+                }
+            )
 
         links.sort(key=lambda item: item["score"], reverse=True)
         return links
 
     def _score_link(self, text: str) -> int:
-        return sum(2 for keyword in KEYWORDS if keyword in text)
+        normalized_text = normalize_for_search(text)
+        return sum(2 for keyword in KEYWORDS if normalize_for_search(keyword) in normalized_text)

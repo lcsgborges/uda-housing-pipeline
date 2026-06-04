@@ -60,9 +60,9 @@ Validações relevantes:
 
 Se a OpenAI retornar um payload fora do contrato, a validação falha antes de gravar no banco.
 
-## C. Camada de servico
+## C. Camada de serviço
 
-A API REST disponibiliza consultas por empresa e periodo.
+A API REST disponibiliza consultas por empresa e período.
 
 Endpoints principais:
 

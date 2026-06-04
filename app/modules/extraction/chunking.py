@@ -1,12 +1,13 @@
 import re
-import unicodedata
 from dataclasses import dataclass
+
+from app.core.text import normalize_for_search
 
 SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
     "operacional": (
         "operacional",
         "desempenho operacional",
-        "lancamento",
+        "lançamento",
         "venda",
         "distrato",
         "vgv",
@@ -25,9 +26,9 @@ SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
         "margem",
         "ebitda",
         "caixa",
-        "divida",
+        "dívida",
         "resultado",
-        "patrimonio",
+        "patrimônio",
         "roe",
     ),
     "periodo": (
@@ -44,9 +45,9 @@ SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
     ),
     "tabela": (
         "total",
-        "comparacao",
-        "variacao",
-        "balanco",
+        "comparação",
+        "variação",
+        "balanço",
         "conjuntura",
         "x 2t",
         "x 3t",
@@ -180,7 +181,9 @@ class SemanticChunker:
         if _numeric_density(line) > 0.25:
             return False
         has_semantic_term = any(
-            term in normalized for terms in SEMANTIC_PROFILES.values() for term in terms
+            _normalize(term) in normalized
+            for terms in SEMANTIC_PROFILES.values()
+            for term in terms
         )
         is_visual_heading = line.isupper() or line.istitle() or normalized.endswith(":")
         return has_semantic_term and is_visual_heading
@@ -190,7 +193,7 @@ class SemanticChunker:
         tags = [
             tag
             for tag, terms in SEMANTIC_PROFILES.items()
-            if any(term in normalized for term in terms)
+            if any(_normalize(term) in normalized for term in terms)
         ]
         if _has_table_shape(text):
             tags.append("tabela")
@@ -200,7 +203,7 @@ class SemanticChunker:
         normalized = _normalize(f"{heading or ''}\n{text}")
         score = 0
         for tag, terms in SEMANTIC_PROFILES.items():
-            hits = sum(1 for term in terms if term in normalized)
+            hits = sum(1 for term in terms if _normalize(term) in normalized)
             weight = 3 if tag in {"operacional", "financeiro"} else 2
             score += hits * weight
         score += len(tags) * 2
@@ -212,9 +215,7 @@ class SemanticChunker:
 
 
 def _normalize(value: str) -> str:
-    decomposed = unicodedata.normalize("NFKD", value)
-    ascii_text = "".join(char for char in decomposed if not unicodedata.combining(char))
-    return ascii_text.casefold()
+    return normalize_for_search(value)
 
 
 def _numeric_density(value: str) -> float:

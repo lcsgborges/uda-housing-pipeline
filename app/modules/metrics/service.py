@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 
+from app.core.text import normalize_for_search
 from app.modules.companies.repository import CompanyRepository
 from app.modules.metrics.repository import MetricRepository
 from app.modules.metrics.schemas import ConjunturaMetricItem, ConjunturaResponse
@@ -25,7 +26,7 @@ class MetricService:
             company_id=company_id,
             year=ano,
             quarter=trimestre,
-            metric_name=metrica,
+            metric_name=normalize_for_search(metrica) if metrica else None,
         )
 
     async def get_or_404(self, metric_id: int):
@@ -60,12 +61,13 @@ class MetricService:
 
     async def _get_company_or_404(self, empresa: str):
         companies = await self.company_repo.list_all()
-        empresa_normalizada = empresa.lower()
+        empresa_normalizada = normalize_for_search(empresa)
         company = next(
             (
                 c
                 for c in companies
-                if c.name.lower() == empresa_normalizada or c.ticker.lower() == empresa_normalizada
+                if normalize_for_search(c.name) == empresa_normalizada
+                or normalize_for_search(c.ticker) == empresa_normalizada
             ),
             None,
         )

@@ -41,7 +41,7 @@ class _FakeExtraction:
     [
         ("https://ri.com/previa-3t25.pdf", "", (2025, 3)),
         ("https://ri.com/doc.pdf", "Resultado 4T2026", (2026, 4)),
-        ("https://ri.com/doc.pdf", "Sem periodo", (None, None)),
+        ("https://ri.com/doc.pdf", "Sem período", (None, None)),
     ],
 )
 def test_infer_period(url, title, expected):
@@ -52,6 +52,7 @@ def test_infer_period(url, title, expected):
     ("text", "expected"),
     [
         ("Prévia Operacional", "previa_operacional"),
+        ("Previa Operacional", "previa_operacional"),
         ("Resultado Trimestral", "resultado_trimestral"),
         ("Comunicado ao mercado", "outro"),
     ],

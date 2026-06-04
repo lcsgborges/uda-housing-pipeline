@@ -31,7 +31,14 @@ async def lifespan(app: FastAPI):
         stop_scheduler()
 
 
-app = FastAPI(title="Pipeline UDA", lifespan=lifespan)
+app = FastAPI(
+    title="Pipeline UDA",
+    description=(
+        "API para coletar documentos de Relações com Investidores, extrair métricas "
+        "habitacionais com LLM e consultar dados de conjuntura."
+    ),
+    lifespan=lifespan,
+)
 
 app.include_router(companies_router)
 app.include_router(documents_router)
@@ -39,6 +46,10 @@ app.include_router(ingestion_router)
 app.include_router(metrics_router)
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Verificar saúde",
+    description="Retorna o estado básico de disponibilidade da API.",
+)
 async def health():
     return {"status": "ok"}

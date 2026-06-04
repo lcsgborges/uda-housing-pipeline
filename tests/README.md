@@ -1,13 +1,12 @@
 # Testes
 
-Organizacao por dominio da aplicacao:
+Organização por domínio da aplicação:
 
-- `api/`: contratos HTTP e comportamento dos routers.
-- `extraction/`: parsing, chunking, contrato semantico, cliente LLM e servico de extracao.
-- `ingestion/`: scraping, download, hash, idempotencia e servico de ingestao.
-- `lineage/`: repositorio e schemas de linhagem.
-- `storage/`: storage local/S3 e helpers de URI.
-- `fixtures/`: validacoes de fixtures e exemplos documentais.
+* `api/`: contratos HTTP e comportamento dos routers.
+* `extraction/`: parsing, chunking, contrato semântico, cliente LLM e serviço de extração.
+* `ingestion/`: scraping, download, hash, idempotência e serviço de ingestão.
+* `lineage/`: repositório e schemas de linhagem.
+* `storage/`: storage local/S3 e helpers de URI.
+* `fixtures/`: validações de fixtures e exemplos documentais.
 
-O `conftest.py` fica na raiz para compartilhar o PostgreSQL via Testcontainers, sessao async
-e `TestClient` entre todos os dominios.
+O `conftest.py` fica na raiz para compartilhar o PostgreSQL via Testcontainers, a sessão assíncrona e o `TestClient` entre todos os domínios.

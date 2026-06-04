@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.text import normalize_for_search
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.documents.repository import DocumentRepository
@@ -148,9 +149,9 @@ def infer_period(url: str, title: str) -> tuple[int | None, int | None]:
 
 
 def infer_document_type(text: str) -> str:
-    lowered = text.lower()
-    if "prévia" in lowered or "previa" in lowered:
+    normalized = normalize_for_search(text)
+    if "previa" in normalized:
         return "previa_operacional"
-    if "resultado" in lowered:
+    if "resultado" in normalized:
         return "resultado_trimestral"
     return "outro"

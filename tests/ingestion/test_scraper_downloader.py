@@ -35,7 +35,7 @@ class _FakeClient:
 def test_ri_scraper_encontra_pdfs_e_prioriza_previa(monkeypatch):
     html = """
     <html>
-      <a href="/downloads/previa-3t25.pdf">Prévia Operacional 3T25</a>
+      <a href="/downloads/previa-3t25.pdf">Previa Operacional 3T25</a>
       <a href="/downloads/apresentacao-3t25.pdf">Apresentação institucional</a>
       <a href="/downloads/noticia.html">Notícia</a>
     </html>
@@ -48,7 +48,7 @@ def test_ri_scraper_encontra_pdfs_e_prioriza_previa(monkeypatch):
 
     assert response.raise_for_status_called is True
     assert len(links) == 2
-    assert links[0]["title"] == "Prévia Operacional 3T25"
+    assert links[0]["title"] == "Previa Operacional 3T25"
     assert links[0]["url"] == "https://ri.mrv.com.br/downloads/previa-3t25.pdf"
     assert links[0]["score"] > links[1]["score"]
 
