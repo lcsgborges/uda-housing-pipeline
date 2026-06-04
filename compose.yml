@@ -7,7 +7,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-dev}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://uda:uda@postgres:5432/uda}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uda}:${POSTGRES_PASSWORD:-uda}@postgres:5432/${POSTGRES_DB:-uda}
       DOCUMENTS_DIR: /app/data/documents
       STORAGE_BACKEND: rustfs
       RUSTFS_ENDPOINT: rustfs:9000
@@ -26,6 +26,7 @@ services:
       USER_AGENT: ${USER_AGENT:-Pipeline-UDA/1.0}
       EXTRACTION_FULL_SCAN_MAX_CHARS: ${EXTRACTION_FULL_SCAN_MAX_CHARS:-14000}
       EXTRACTION_CONTEXT_MAX_CHARS: ${EXTRACTION_CONTEXT_MAX_CHARS:-18000}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
     volumes:
       - api_data:/app/data
     depends_on:
