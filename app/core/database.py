@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -24,7 +25,11 @@ class TimestampMixin:
 
 
 settings = get_settings()
-engine = create_async_engine(settings.database_url, future=True)
+engine_options = {"future": True}
+if settings.app_env == "test":
+    engine_options["poolclass"] = NullPool
+
+engine = create_async_engine(settings.database_url, **engine_options)
 SessionLocal = async_sessionmaker(
     bind=engine,
     autoflush=False,

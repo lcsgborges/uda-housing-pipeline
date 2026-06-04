@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Pipeline UDA"
     app_env: str = "dev"
-    database_url: str = "sqlite+aiosqlite:///./pipeline_uda.db"
+    database_url: str = "postgresql+asyncpg://uda:uda@localhost:5432/uda"
     documents_dir: Path = Path("./data/documents")
     log_level: str = "INFO"
     storage_backend: str = "local"

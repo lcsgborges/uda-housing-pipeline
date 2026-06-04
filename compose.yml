@@ -7,7 +7,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-dev}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      DATABASE_URL: sqlite+aiosqlite:////app/data/pipeline_uda.db
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://uda:uda@postgres:5432/uda}
       DOCUMENTS_DIR: /app/data/documents
       STORAGE_BACKEND: rustfs
       RUSTFS_ENDPOINT: rustfs:9000
@@ -29,8 +29,27 @@ services:
     volumes:
       - api_data:/app/data
     depends_on:
+      postgres:
+        condition: service_healthy
       rustfs:
         condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: uda-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-uda}
+      POSTGRES_USER: ${POSTGRES_USER:-uda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uda}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   rustfs_perms:
     image: alpine:3.20
@@ -60,4 +79,5 @@ services:
 
 volumes:
   api_data:
+  postgres_data:
   rustfs_data:

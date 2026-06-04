@@ -24,13 +24,13 @@ Transformar documentos não estruturados (PDFs de resultados/prévias operaciona
 - FastAPI
 - SQLAlchemy 2.0
 - Alembic
-- SQLite (local/compose) ou PostgreSQL via `DATABASE_URL`
+- PostgreSQL via `asyncpg`
 - Pydantic v2 + pydantic-settings
 - PyMuPDF
 - httpx + BeautifulSoup4
 - OpenAI SDK via Responses API e contrato Pydantic
 - RustFS como object storage S3-compatible
-- pytest
+- pytest + Testcontainers para banco PostgreSQL nos testes
 - Ruff
 
 ## Instalação
@@ -47,7 +47,8 @@ cp .env.example .env
 
 Variáveis principais:
 
-- `DATABASE_URL=sqlite+aiosqlite:///./pipeline_uda.db` (local assíncrono)
+- `DATABASE_URL=postgresql+asyncpg://uda:uda@localhost:5432/uda`
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` para o Compose
 - `LLM_PROVIDER=openai` + `OPENAI_API_KEY` para extração real via API da OpenAI
 - `LLM_PROVIDER=fake` para modo de desenvolvimento sem chave/custo de API
 - `OPENAI_MODEL=gpt-4.1-mini`
@@ -72,7 +73,7 @@ Edite `.env` e preencha:
 OPENAI_API_KEY=sk-...
 ```
 
-Suba API + RustFS:
+Suba API + PostgreSQL + RustFS:
 
 ```bash
 docker compose --env-file .env up --build
@@ -82,10 +83,11 @@ Serviços:
 
 - API: `http://localhost:8000`
 - Swagger/OpenAPI: `http://localhost:8000/docs`
+- PostgreSQL: `localhost:5432`
 - RustFS S3 API: `http://localhost:9000`
 - RustFS Console: `http://localhost:9001`
 
-O compose usa `STORAGE_BACKEND=rustfs` e grava objetos no bucket `uda-documents`.
+O compose usa PostgreSQL para o catálogo relacional, `STORAGE_BACKEND=rustfs` e grava objetos no bucket `uda-documents`.
 
 ## Executar servidor
 
@@ -123,8 +125,10 @@ POST /api/ingestion/extract-batch?batch_size=10
 
 ## Rodar testes
 
+Os testes sobem um PostgreSQL efêmero via Testcontainers. Docker precisa estar disponível.
+
 ```bash
-uv run pytest -q
+uv run --extra dev pytest -q
 ```
 
 ## Endpoints principais

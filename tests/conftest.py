@@ -1,18 +1,40 @@
 import asyncio
-from collections.abc import Generator
+import atexit
+import os
+from collections.abc import AsyncGenerator, Generator
 
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from testcontainers.postgres import PostgresContainer
 
-from app.core.database import Base, get_db_session
-from app.main import app
-from app.models_registry import Company, DataLineage, Document, Metric
+postgres = PostgresContainer(
+    os.getenv("TEST_POSTGRES_IMAGE", "postgres:16-alpine"),
+    driver="asyncpg",
+)
+postgres.start()
+os.environ["APP_ENV"] = "test"
+os.environ["DATABASE_URL"] = postgres.get_connection_url()
+_postgres_stopped = False
+
+
+def stop_postgres() -> None:
+    global _postgres_stopped
+    if not _postgres_stopped:
+        postgres.stop()
+        _postgres_stopped = True
+
+
+atexit.register(stop_postgres)
+
+from app.core.database import Base, engine, get_db_session  # noqa: E402
+from app.main import app  # noqa: E402
+from app.models_registry import Company, DataLineage, Document, Metric  # noqa: E402
 
 _ = (Company, Document, Metric, DataLineage)
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_pipeline_uda.db"
-engine = create_async_engine(TEST_DATABASE_URL)
 TestingSessionLocal = async_sessionmaker(
     autocommit=False,
     autoflush=False,
@@ -21,30 +43,52 @@ TestingSessionLocal = async_sessionmaker(
 )
 
 
-@pytest.fixture(autouse=True)
-def reset_db() -> Generator[None, None, None]:
-    async def _reset() -> None:
+@pytest.fixture(scope="session", autouse=True)
+def postgres_container() -> Generator[PostgresContainer, None, None]:
+    async def _prepare_schema() -> None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
-    asyncio.run(_reset())
+    asyncio.run(_prepare_schema())
+    yield postgres
+    asyncio.run(engine.dispose())
+    stop_postgres()
+
+
+@pytest.fixture(autouse=True)
+def clean_db() -> Generator[None, None, None]:
     yield
 
+    async def _clean() -> None:
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    """
+                    TRUNCATE TABLE
+                        data_lineage,
+                        metrics,
+                        documents,
+                        companies
+                    RESTART IDENTITY CASCADE
+                    """
+                )
+            )
 
-@pytest.fixture()
-def db_session() -> Generator:
-    session = TestingSessionLocal()
-    try:
+    asyncio.run(_clean())
+
+
+@pytest_asyncio.fixture()
+async def db_session() -> AsyncGenerator:
+    async with TestingSessionLocal() as session:
         yield session
-    finally:
-        asyncio.run(session.close())
 
 
 @pytest.fixture()
-def client(db_session) -> Generator[TestClient, None, None]:
+def client() -> Generator[TestClient, None, None]:
     async def override_get_db():
-        yield db_session
+        async with TestingSessionLocal() as session:
+            yield session
 
     app.dependency_overrides[get_db_session] = override_get_db
     with TestClient(app) as c:

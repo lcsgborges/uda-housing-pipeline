@@ -1,6 +1,6 @@
 # Como rodar com Docker Compose
 
-Este projeto sobe a API FastAPI e o RustFS em uma única stack. A API usa SQLite em volume para o catálogo relacional e RustFS como storage S3-compatible para PDFs/imagens coletados.
+Este projeto sobe a API FastAPI, PostgreSQL e RustFS em uma única stack. A API usa PostgreSQL para o catálogo relacional e RustFS como storage S3-compatible para PDFs/imagens coletados.
 
 ## 1. Configurar ambiente
 
@@ -32,8 +32,18 @@ Serviços expostos:
 
 - API: `http://localhost:8000`
 - Swagger/OpenAPI: `http://localhost:8000/docs`
+- PostgreSQL: `localhost:5432`
 - RustFS S3 API: `http://localhost:9000`
 - RustFS Console: `http://localhost:9001`
+
+Credenciais locais do PostgreSQL:
+
+```bash
+POSTGRES_DB=uda
+POSTGRES_USER=uda
+POSTGRES_PASSWORD=uda
+DATABASE_URL=postgresql+asyncpg://uda:uda@localhost:5432/uda
+```
 
 Credenciais locais do RustFS:
 

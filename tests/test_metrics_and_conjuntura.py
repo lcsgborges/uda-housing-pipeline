@@ -1,16 +1,18 @@
-import asyncio
 from datetime import datetime
+
+import pytest
 
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.metrics.models import Metric
 
 
-def test_consulta_metricas(client, db_session):
+@pytest.mark.asyncio
+async def test_consulta_metricas(client, db_session):
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
     db_session.add(company)
-    asyncio.run(db_session.commit())
-    asyncio.run(db_session.refresh(company))
+    await db_session.commit()
+    await db_session.refresh(company)
 
     document = Document(
         company_id=company.id,
@@ -26,8 +28,8 @@ def test_consulta_metricas(client, db_session):
         processed_at=datetime.utcnow(),
     )
     db_session.add(document)
-    asyncio.run(db_session.commit())
-    asyncio.run(db_session.refresh(document))
+    await db_session.commit()
+    await db_session.refresh(document)
 
     metric = Metric(
         company_id=company.id,
@@ -44,7 +46,7 @@ def test_consulta_metricas(client, db_session):
         confidence=0.92,
     )
     db_session.add(metric)
-    asyncio.run(db_session.commit())
+    await db_session.commit()
 
     resp_metrics = client.get("/api/metrics")
     assert resp_metrics.status_code == 200

@@ -15,13 +15,14 @@ A stack principal:
 
 - API: `FastAPI`
 - Banco: `SQLAlchemy` assincrono com `AsyncSession`
-- Banco local: `SQLite` via `aiosqlite`
+- Banco: `PostgreSQL` via `asyncpg`
 - Scheduler: `APScheduler`
 - Orquestracao DAG: `Airflow`
 - Object storage: `RustFS` (S3-compatible) ou filesystem local
 - Parsing PDF: `PyMuPDF`
 - LLM: cliente fake (dev) ou OpenAI
 - Ambiente/dependencias: `uv`
+- Testes: `pytest` com `Testcontainers` para PostgreSQL efemero
 
 ## 2) Arquitetura por modulos
 
@@ -93,7 +94,10 @@ cp .env.example .env
 
 3. principais variaveis no `.env`:
 
-- `DATABASE_URL=sqlite+aiosqlite:///./pipeline_uda.db`
+- `DATABASE_URL=postgresql+asyncpg://uda:uda@localhost:5432/uda`
+- `POSTGRES_DB=uda`
+- `POSTGRES_USER=uda`
+- `POSTGRES_PASSWORD=uda`
 - `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (extracao real)
 - `LLM_PROVIDER=fake` (dev, sem custo de API)
 - `OPENAI_MODEL=gpt-4.1-mini`
@@ -266,13 +270,18 @@ Pipeline da DAG:
 Rodar suite:
 
 ```bash
-uv run pytest -q
+uv run --extra dev pytest -q
 ```
+
+Os testes usam Testcontainers e precisam de Docker disponivel para subir um PostgreSQL efemero.
 
 ## 11) Problemas comuns
 
-- `No module named aiosqlite`:
+- `No module named asyncpg` ou `No module named testcontainers`:
   - rode `uv sync --extra dev`.
+
+- falha ao subir PostgreSQL nos testes:
+  - valide se o Docker esta em execucao e se a imagem `postgres:16-alpine` pode ser baixada.
 
 - erro de conexao com RustFS:
   - valide `STORAGE_BACKEND=rustfs`, endpoint e credenciais.
