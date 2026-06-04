@@ -12,16 +12,19 @@ _scheduler: BackgroundScheduler | None = None
 
 
 async def run_ingestion(company_id: int | None = None) -> dict:
+    """Executa a ingestão em uma sessão assíncrona independente."""
     async with SessionLocal() as session:
         service = IngestionService(session)
         return await service.run(company_id=company_id)
 
 
 def run_ingestion_sync(company_id: int | None = None) -> dict:
+    """Adaptador síncrono para executar ingestão em jobs do APScheduler."""
     return asyncio.run(run_ingestion(company_id=company_id))
 
 
 def start_scheduler() -> BackgroundScheduler:
+    """Inicia o scheduler de polling de ingestão quando ainda não está ativo."""
     global _scheduler
     if _scheduler and _scheduler.running:
         return _scheduler
@@ -47,6 +50,7 @@ def start_scheduler() -> BackgroundScheduler:
 
 
 def stop_scheduler() -> None:
+    """Finaliza o scheduler global de ingestão quando ele está rodando."""
     global _scheduler
     if _scheduler and _scheduler.running:
         _scheduler.shutdown(wait=False)

@@ -12,6 +12,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 def get_service(session: SessionDep) -> IngestionService:
+    """Monta o serviço de ingestão para injeção de dependência."""
     return IngestionService(session)
 
 
@@ -28,6 +29,7 @@ ServiceDep = Annotated[IngestionService, Depends(get_service)]
     ),
 )
 async def run_ingestion(service: ServiceDep):
+    """Endpoint para executar ingestão de todas as empresas ativas."""
     return await service.run()
 
 
@@ -40,6 +42,7 @@ async def run_ingestion_company(
     company_id: CompanyId,
     service: ServiceDep,
 ):
+    """Endpoint para executar ingestão de uma empresa específica."""
     return await service.run(company_id=company_id)
 
 
@@ -56,4 +59,5 @@ async def run_extraction_batch(
         description="Quantidade máxima de documentos no lote.",
     ),
 ):
+    """Endpoint para processar documentos pendentes em lote pela LLM."""
     return await service.extraction_service.process_pending_documents_batch(batch_size=batch_size)

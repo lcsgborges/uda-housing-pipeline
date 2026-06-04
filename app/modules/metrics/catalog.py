@@ -173,6 +173,7 @@ METRIC_DEFINITIONS: tuple[MetricDefinition, ...] = (
 
 
 def _to_snake_case(value: str) -> str:
+    """Normaliza texto livre para snake_case sem acentos."""
     normalized = normalize_for_search(value)
     slug = re.sub(r"[^a-z0-9]+", "_", normalized)
     return re.sub(r"_+", "_", slug).strip("_")
@@ -187,15 +188,18 @@ _ALIASES_BY_SLUG = {
 
 
 def canonical_metric_name(value: str) -> str:
+    """Resolve aliases conhecidos para o nome canônico da métrica."""
     slug = _to_snake_case(value)
     return _ALIASES_BY_SLUG.get(slug, slug)
 
 
 def find_metric_definition(value: str) -> MetricDefinition | None:
+    """Busca a definição de catálogo para uma métrica ou alias."""
     return _DEFINITIONS_BY_NAME.get(canonical_metric_name(value))
 
 
 def metric_terms_for_category(category: str) -> tuple[str, ...]:
+    """Retorna termos e aliases usados para ranquear chunks por categoria."""
     terms: list[str] = []
     for definition in METRIC_DEFINITIONS:
         if definition.category != category:
@@ -206,6 +210,7 @@ def metric_terms_for_category(category: str) -> tuple[str, ...]:
 
 
 def metric_catalog_prompt() -> str:
+    """Renderiza o catálogo de métricas em texto para o prompt da LLM."""
     lines = [
         (
             f"- {definition.name}: categoria={definition.category}, "
@@ -217,5 +222,6 @@ def metric_catalog_prompt() -> str:
 
 
 def metric_priority(value: str) -> int:
+    """Retorna a prioridade de ordenação da métrica no catálogo."""
     definition = find_metric_definition(value)
     return definition.priority if definition else 999

@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class IngestionService:
     def __init__(self, session: AsyncSession):
+        """Inicializa dependências de scraping, download, storage e extração."""
         self.session = session
         settings = get_settings()
         self.settings = settings
@@ -35,6 +36,7 @@ class IngestionService:
         company_id: int | None = None,
         extract_after_ingestion: bool = True,
     ) -> dict:
+        """Executa ingestão das empresas ativas e resume documentos processados."""
         stmt = select(Company).where(Company.is_active.is_(True))
         if company_id is not None:
             stmt = stmt.where(Company.id == company_id)
@@ -74,6 +76,7 @@ class IngestionService:
         title: str | None,
         extract_after_ingestion: bool = True,
     ) -> str:
+        """Ingere um link PDF, deduplica por hash e dispara extração opcional."""
         collected_at = utc_now()
         content = self.downloader.download(url, self.settings.documents_dir)
         file_hash = sha256_bytes(content)
@@ -126,6 +129,7 @@ class IngestionService:
 
 
 def infer_period(url: str, title: str) -> tuple[int | None, int | None]:
+    """Infere ano e trimestre a partir de padrões comuns em URL e título."""
     text = f"{url} {title}".lower()
     quarter_year_match = re.search(r"([1-4])t[\s_-]?(20\d{2}|\d{2})", text)
     quarter_match = re.search(r"([1-4])t", text)
@@ -149,6 +153,7 @@ def infer_period(url: str, title: str) -> tuple[int | None, int | None]:
 
 
 def infer_document_type(text: str) -> str:
+    """Classifica o tipo do documento a partir do texto normalizado."""
     normalized = normalize_for_search(text)
     if "previa" in normalized:
         return "previa_operacional"

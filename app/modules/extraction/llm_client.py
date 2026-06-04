@@ -42,10 +42,12 @@ class BaseLLMClient(ABC):
         year: int | None,
         quarter: int | None,
     ) -> ExtractedMetricBatch:
+        """Extrai métricas estruturadas de um único contexto documental."""
         raise NotImplementedError
 
     @abstractmethod
     def extract_metrics_batch(self, payloads: list[dict]) -> ExtractedBatchResponse:
+        """Extrai métricas estruturadas de vários documentos em uma chamada."""
         raise NotImplementedError
 
 
@@ -59,6 +61,7 @@ class FakeLLMClient(BaseLLMClient):
         year: int | None,
         quarter: int | None,
     ) -> ExtractedMetricBatch:
+        """Retorna métricas determinísticas para testes e desenvolvimento local."""
         _ = (original_url, context)
         return ExtractedMetricBatch(
             metrics=[
@@ -92,6 +95,7 @@ class FakeLLMClient(BaseLLMClient):
         )
 
     def extract_metrics_batch(self, payloads: list[dict]) -> ExtractedBatchResponse:
+        """Aplica a extração fake para cada payload preservando document_ref."""
         docs = []
         for payload in payloads:
             docs.append(
@@ -111,6 +115,7 @@ class FakeLLMClient(BaseLLMClient):
 
 class OpenAILLMClient(BaseLLMClient):
     def __init__(self, api_key: str, model: str):
+        """Inicializa o cliente OpenAI validando chave e modelo configurados."""
         if not api_key:
             raise ValueError("OPENAI_API_KEY precisa estar configurada para LLM_PROVIDER=openai.")
         self.client = OpenAI(api_key=api_key)
@@ -125,6 +130,7 @@ class OpenAILLMClient(BaseLLMClient):
         year: int | None,
         quarter: int | None,
     ) -> ExtractedMetricBatch:
+        """Extrai métricas de um documento usando Structured Outputs da OpenAI."""
         response = self.client.responses.parse(
             model=self.model,
             input=[
@@ -148,6 +154,7 @@ class OpenAILLMClient(BaseLLMClient):
         return response.output_parsed
 
     def extract_metrics_batch(self, payloads: list[dict]) -> ExtractedBatchResponse:
+        """Extrai métricas de múltiplos documentos usando Structured Outputs."""
         response = self.client.responses.parse(
             model=self.model,
             input=[
@@ -166,6 +173,7 @@ class OpenAILLMClient(BaseLLMClient):
 
 
 def build_llm_client() -> BaseLLMClient:
+    """Constrói o cliente LLM conforme o provider configurado."""
     settings = get_settings()
     if settings.llm_provider.lower() in {"openai", "chatgpt"}:
         return OpenAILLMClient(api_key=settings.openai_api_key, model=settings.openai_model)
@@ -180,6 +188,7 @@ def _build_single_document_prompt(
     year: int | None,
     quarter: int | None,
 ) -> str:
+    """Monta o prompt de usuário para um único documento."""
     return f"""
 Extraia as métricas do documento abaixo.
 
@@ -194,6 +203,7 @@ Conteúdo do documento:
 
 
 def _build_batch_prompt(payloads: list[dict]) -> str:
+    """Monta o prompt de usuário para extração em lote."""
     return f"""
 Extraia as métricas dos documentos abaixo.
 Para cada documento, copie o document_ref recebido para a resposta correspondente.

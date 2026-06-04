@@ -40,5 +40,6 @@ SessionLocal = async_sessionmaker(
 
 
 async def get_db_session():
+    """Fornece uma sessão assíncrona de banco para dependências FastAPI."""
     async with SessionLocal() as session:
         yield session

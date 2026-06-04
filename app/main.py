@@ -19,6 +19,7 @@ _ = (Company, Document, Metric, DataLineage)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Inicializa schema e scheduler opcional durante o ciclo de vida da API."""
     _ = app
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -52,4 +53,5 @@ app.include_router(metrics_router)
     description="Retorna o estado básico de disponibilidade da API.",
 )
 async def health():
+    """Retorna o status básico de disponibilidade da aplicação."""
     return {"status": "ok"}

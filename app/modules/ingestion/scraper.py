@@ -16,10 +16,12 @@ KEYWORDS = [
 
 class RIScraper:
     def __init__(self, timeout: int, user_agent: str):
+        """Inicializa o scraper HTTP com timeout e User-Agent configurados."""
         self.timeout = timeout
         self.user_agent = user_agent
 
     def find_pdf_links(self, base_url: str) -> list[dict]:
+        """Descobre links PDF em uma página de RI e ordena por relevância."""
         headers = {"User-Agent": self.user_agent}
         with httpx.Client(timeout=self.timeout, headers=headers, follow_redirects=True) as client:
             response = client.get(base_url)
@@ -47,5 +49,6 @@ class RIScraper:
         return links
 
     def _score_link(self, text: str) -> int:
+        """Pontua um link conforme termos relevantes aparecem no texto ou URL."""
         normalized_text = normalize_for_search(text)
         return sum(2 for keyword in KEYWORDS if normalize_for_search(keyword) in normalized_text)

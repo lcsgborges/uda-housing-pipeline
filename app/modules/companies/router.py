@@ -14,6 +14,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 def get_service(session: SessionDep) -> CompanyService:
+    """Monta o serviço de empresas para injeção de dependência."""
     return CompanyService(CompanyRepository(session))
 
 
@@ -34,6 +35,7 @@ CompanyId = Annotated[int, Path(description="ID da empresa cadastrada.")]
     ),
 )
 async def create_company(payload: CompanyCreate, service: ServiceDep):
+    """Endpoint para cadastrar uma empresa monitorada."""
     return await service.create(payload)
 
 
@@ -44,6 +46,7 @@ async def create_company(payload: CompanyCreate, service: ServiceDep):
     description="Lista as empresas cadastradas em ordem alfabética.",
 )
 async def list_companies(service: ServiceDep):
+    """Endpoint para listar empresas cadastradas."""
     return await service.list_all()
 
 
@@ -54,6 +57,7 @@ async def list_companies(service: ServiceDep):
     description="Retorna os dados de uma empresa cadastrada.",
 )
 async def get_company(company_id: CompanyId, service: ServiceDep):
+    """Endpoint para consultar uma empresa por ID."""
     return await service.get_or_404(company_id)
 
 
@@ -68,6 +72,7 @@ async def update_company(
     payload: CompanyUpdate,
     service: ServiceDep,
 ):
+    """Endpoint para atualizar parcialmente uma empresa."""
     return await service.update(company_id, payload)
 
 
@@ -79,5 +84,6 @@ async def update_company(
     description="Remove uma empresa cadastrada e seus dados relacionados.",
 )
 async def delete_company(company_id: CompanyId, service: ServiceDep):
+    """Endpoint para remover uma empresa por ID."""
     await service.delete(company_id)
     return Response(status_code=204)

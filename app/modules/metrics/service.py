@@ -18,6 +18,7 @@ from app.modules.metrics.schemas import (
 
 class MetricService:
     def __init__(self, repository: MetricRepository, company_repo: CompanyRepository):
+        """Inicializa a camada de serviço com repositórios de métricas e empresas."""
         self.repository = repository
         self.company_repo = company_repo
 
@@ -29,6 +30,7 @@ class MetricService:
         trimestre: int | None = None,
         metrica: str | None = None,
     ):
+        """Lista métricas normalizando empresa e nome canônico quando informados."""
         company_id = None
         if empresa:
             company_id = (await self._get_company_or_404(empresa)).id
@@ -40,12 +42,14 @@ class MetricService:
         )
 
     async def get_or_404(self, metric_id: int):
+        """Retorna uma métrica por ID ou lança HTTP 404 quando ausente."""
         metric = await self.repository.get_by_id(metric_id)
         if not metric:
             raise HTTPException(status_code=404, detail="Métrica não encontrada.")
         return metric
 
     async def conjuntura(self, empresa: str, ano: int, trimestre: int) -> ConjunturaResponse:
+        """Monta a resposta de conjuntura com métricas deduplicadas da camada Gold."""
         company = await self._get_company_or_404(empresa)
         raw_metrics = await self.repository.query_conjuntura(company.id, ano, trimestre)
         metrics = _select_gold_metrics(raw_metrics)
@@ -73,6 +77,7 @@ class MetricService:
         )
 
     async def _get_company_or_404(self, empresa: str):
+        """Resolve empresa por nome ou ticker ignorando acentos e caixa."""
         companies = await self.company_repo.list_all()
         empresa_normalizada = normalize_for_search(empresa)
         company = next(
@@ -90,6 +95,7 @@ class MetricService:
 
 
 def _select_gold_metrics(metrics: list[Metric]) -> list[Metric]:
+    """Seleciona a melhor métrica de cada nome canônico para a visão Gold."""
     best_by_name: dict[str, Metric] = {}
     for metric in metrics:
         name = canonical_metric_name(metric.metric_name)
@@ -103,10 +109,12 @@ def _select_gold_metrics(metrics: list[Metric]) -> list[Metric]:
 
 
 def _metric_rank(metric: Metric) -> tuple[int, float, int]:
+    """Calcula a chave de desempate usada para escolher métricas Gold."""
     return (_metric_quality_score(metric), metric.confidence, metric.id or 0)
 
 
 def _metric_quality(metric: Metric) -> ConjunturaQuality:
+    """Converte uma métrica em metadados de qualidade da camada Gold."""
     bounded_score = _metric_quality_score(metric)
     return ConjunturaQuality(
         camada="gold",
@@ -116,6 +124,7 @@ def _metric_quality(metric: Metric) -> ConjunturaQuality:
 
 
 def _metric_quality_score(metric: Metric) -> int:
+    """Calcula o score de qualidade combinando confiança, valor e evidência."""
     score = round(metric.confidence * 100)
     score += 8 if metric.value is not None else -20
     score += 4 if metric.source_page is not None else -6
@@ -125,6 +134,7 @@ def _metric_quality_score(metric: Metric) -> int:
 
 
 def _quality_level(score: int) -> str:
+    """Converte um score numérico em nível textual de qualidade."""
     if score >= 85:
         return "alta"
     if score >= 65:
@@ -133,5 +143,6 @@ def _quality_level(score: int) -> str:
 
 
 def _catalog_category(metric_name: str) -> str | None:
+    """Retorna a categoria do catálogo para uma métrica, quando conhecida."""
     definition = find_metric_definition(metric_name)
     return definition.category if definition else None

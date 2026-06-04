@@ -14,6 +14,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 def get_service(session: SessionDep) -> DocumentService:
+    """Monta o serviço de documentos para injeção de dependência."""
     return DocumentService(DocumentRepository(session))
 
 
@@ -28,6 +29,7 @@ ServiceDep = Annotated[DocumentService, Depends(get_service)]
     description="Lista documentos encontrados, baixados, processados ou ignorados por duplicidade.",
 )
 async def list_documents(service: ServiceDep):
+    """Endpoint para listar documentos catalogados."""
     return await service.list_all()
 
 
@@ -38,4 +40,5 @@ async def list_documents(service: ServiceDep):
     description="Retorna os dados de um documento catalogado.",
 )
 async def get_document(document_id: DocumentId, service: ServiceDep):
+    """Endpoint para consultar um documento por ID."""
     return await service.get_or_404(document_id)

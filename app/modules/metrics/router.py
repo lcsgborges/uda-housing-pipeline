@@ -15,6 +15,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
 
 
 def get_service(session: SessionDep) -> MetricService:
+    """Monta o serviço de métricas para injeção de dependência."""
     return MetricService(MetricRepository(session), CompanyRepository(session))
 
 
@@ -45,6 +46,7 @@ async def list_metrics(
         description="Nome da métrica em snake_case. A busca ignora acentos.",
     ),
 ):
+    """Endpoint para listar métricas extraídas com filtros opcionais."""
     return await service.list_all(
         empresa=empresa,
         ano=ano,
@@ -60,6 +62,7 @@ async def list_metrics(
     description="Retorna uma métrica extraída pelo ID.",
 )
 async def get_metric(metric_id: int, service: ServiceDep):
+    """Endpoint para consultar uma métrica extraída por ID."""
     return await service.get_or_404(metric_id)
 
 
@@ -78,4 +81,5 @@ async def get_conjuntura(
     ano: int = Query(..., description="Ano de referência da conjuntura."),
     trimestre: int = Query(..., ge=1, le=4, description="Trimestre de referência, de 1 a 4."),
 ):
+    """Endpoint para consultar a visão Gold de conjuntura por empresa e período."""
     return await service.conjuntura(empresa=empresa, ano=ano, trimestre=trimestre)

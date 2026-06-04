@@ -85,10 +85,12 @@ class SemanticChunker:
     """Builds semantic chunks for retrieval, not rule-based metric extraction."""
 
     def __init__(self, max_chars: int = 2200, overlap_chars: int = 240):
+        """Configura limites de tamanho e sobreposição entre chunks."""
         self.max_chars = max_chars
         self.overlap_chars = overlap_chars
 
     def build_chunks(self, pages_text: list[str]) -> list[Chunk]:
+        """Transforma textos por página em chunks ranqueados e anotados."""
         chunks: list[Chunk] = []
         ordinal = 0
         for page_index, page_text in enumerate(pages_text, start=1):
@@ -115,6 +117,7 @@ class SemanticChunker:
         top_k: int = 8,
         max_total_chars: int | None = None,
     ) -> list[Chunk]:
+        """Seleciona os chunks mais relevantes respeitando orçamento opcional."""
         if not chunks:
             return []
 
@@ -142,6 +145,7 @@ class SemanticChunker:
         return bounded or selected[:1]
 
     def _split_page_into_semantic_blocks(self, text: str) -> list[tuple[str | None, str]]:
+        """Divide uma página em blocos associados a possíveis headings."""
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         if not lines:
             return []
@@ -167,6 +171,7 @@ class SemanticChunker:
         return blocks
 
     def _bound_block(self, text: str) -> list[str]:
+        """Quebra um bloco textual em pedaços dentro do limite de caracteres."""
         if len(text) <= self.max_chars:
             return [text]
 
@@ -190,6 +195,7 @@ class SemanticChunker:
         return chunks
 
     def _looks_like_heading(self, line: str) -> bool:
+        """Identifica se uma linha tem aparência e conteúdo de título semântico."""
         normalized = _normalize(line)
         if len(line) > 90 or len(line.split()) > 10:
             return False
@@ -204,6 +210,7 @@ class SemanticChunker:
         return has_semantic_term and is_visual_heading
 
     def _tags_for(self, text: str, heading: str | None = None) -> tuple[str, ...]:
+        """Atribui tags semânticas a partir de termos presentes no bloco."""
         normalized = _normalize(f"{heading or ''}\n{text}")
         tags = [
             tag
@@ -215,6 +222,7 @@ class SemanticChunker:
         return tuple(sorted(set(tags)))
 
     def _score_chunk(self, text: str, *, heading: str | None, tags: tuple[str, ...]) -> int:
+        """Pontua um chunk pela presença de termos, tabelas e valores monetários."""
         normalized = _normalize(f"{heading or ''}\n{text}")
         score = 0
         for tag, terms in SEMANTIC_PROFILES.items():
@@ -230,16 +238,19 @@ class SemanticChunker:
 
 
 def _normalize(value: str) -> str:
+    """Normaliza texto para comparação sem acento e sem diferença de caixa."""
     return normalize_for_search(value)
 
 
 def _numeric_density(value: str) -> float:
+    """Calcula a proporção de caracteres numéricos em um texto."""
     if not value:
         return 0.0
     return sum(char.isdigit() for char in value) / len(value)
 
 
 def _has_table_shape(value: str) -> bool:
+    """Detecta forma tabular simples por linhas com números ou percentuais."""
     lines = [line for line in value.splitlines() if line.strip()]
     numeric_lines = sum(1 for line in lines if any(char.isdigit() for char in line))
     percent_lines = sum(1 for line in lines if "%" in line)

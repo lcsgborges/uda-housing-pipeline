@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class ExtractionService:
     def __init__(self, session: AsyncSession):
+        """Inicializa parser, chunker, cliente LLM e storage para extração."""
         self.session = session
         self.settings = get_settings()
         self.parser = PDFParser()
@@ -28,6 +29,7 @@ class ExtractionService:
         self.storage = build_object_storage()
 
     async def process_document(self, document: Document, company_name: str) -> None:
+        """Processa um documento individual e persiste métricas com linhagem."""
         parsed = self._parse_document(document)
         context = self._build_context(parsed.pages_text)
         payload = {
@@ -47,6 +49,7 @@ class ExtractionService:
         )
 
     async def process_pending_documents_batch(self, batch_size: int | None = None) -> dict:
+        """Seleciona documentos pendentes e executa extração em lote."""
         size = batch_size or self.settings.extraction_batch_size
         stmt = (
             select(Document)
@@ -117,6 +120,7 @@ class ExtractionService:
         return {"selected": len(docs), "processed": processed, "failed": failed}
 
     async def _persist_extraction(self, *, document: Document, metrics: list) -> None:
+        """Persiste métricas normalizadas e seus registros de linhagem."""
         metric_rows: list[Metric] = []
         lineage_rows: list[DataLineage] = []
         for item in metrics:
@@ -173,6 +177,7 @@ class ExtractionService:
         await self.session.commit()
 
     def _parse_document(self, document: Document):
+        """Lê e parseia um documento a partir de path local ou storage URI."""
         if not document.local_path:
             raise ValueError("Documento sem local_path para leitura.")
         if _is_storage_uri(document.local_path):
@@ -181,6 +186,7 @@ class ExtractionService:
         return self.parser.parse(document.local_path)
 
     def _build_context(self, pages_text: list[str]) -> str:
+        """Monta o contexto enviado à LLM usando full scan ou chunking semântico."""
         full_text = "\n\n".join(
             [f"[Página {index}]\n{text}" for index, text in enumerate(pages_text, start=1)]
         )
@@ -204,10 +210,12 @@ class ExtractionService:
 
 
 def _is_storage_uri(value: str) -> bool:
+    """Indica se o caminho aponta para um backend de storage conhecido."""
     return value.startswith(("file://", "rustfs://", "s3://"))
 
 
 def _format_chunk_for_llm(chunk: Chunk) -> str:
+    """Formata um chunk com metadados de página, score, título e tags."""
     heading = f"\nTítulo/seção: {chunk.heading}" if chunk.heading else ""
     tags = f"\nTags semânticas: {', '.join(chunk.tags)}" if chunk.tags else ""
     return (
@@ -223,6 +231,7 @@ def _normalize_unit_and_currency(
     default_unit: str | None,
     default_currency: str | None,
 ) -> tuple[str | None, str | None]:
+    """Normaliza unidade e moeda usando defaults do catálogo canônico."""
     normalized_currency = currency
     normalized_unit = unit
     if unit and unit.upper() in {"BRL", "USD"}:

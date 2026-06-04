@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    """Carrega configurações da aplicação e garante o diretório de documentos."""
     settings = Settings()
     settings.documents_dir.mkdir(parents=True, exist_ok=True)
     return settings
