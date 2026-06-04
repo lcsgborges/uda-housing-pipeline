@@ -33,6 +33,19 @@ def test_chunking_identifica_titulo_e_tags_semanticas():
     assert chunks[0].score > 0
 
 
+def test_chunking_marca_pagina_metrica_visual_com_texto_curto():
+    chunker = SemanticChunker(max_chars=400)
+    pages = [
+        "ROL\nVendas líquidas\nEBITDA\nMargem bruta\n"
+    ]
+
+    chunks = chunker.build_chunks(pages)
+
+    assert chunks
+    assert "visual_metric_page" in chunks[0].tags
+    assert chunks[0].score >= 12
+
+
 def test_chunking_respeita_orcamento_de_contexto():
     chunker = SemanticChunker(max_chars=120)
     pages = [
@@ -64,6 +77,22 @@ def test_select_relevant_chunks_lida_com_lista_vazia_e_preserva_primeiro_relevan
     selected = chunker.select_relevant_chunks(chunks, top_k=1)
 
     assert chunker.select_relevant_chunks([]) == []
+    assert chunks[0] in selected
+
+
+def test_select_relevant_chunks_default_top_k_aumentado():
+    chunker = SemanticChunker()
+    chunks = chunker.build_chunks(
+        [
+            "DESEMPENHO OPERACIONAL\nVendas liquidas R$ 100 milhoes",
+            "Resultado financeiro com receita liquida, lucro liquido, ebitda e margem bruta.",
+            "Página adicional com ROL e repasses.",
+        ]
+    )
+
+    selected = chunker.select_relevant_chunks(chunks)
+
+    assert len(selected) <= 20
     assert chunks[0] in selected
 
 

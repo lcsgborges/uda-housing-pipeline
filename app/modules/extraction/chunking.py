@@ -70,6 +70,52 @@ SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
     ),
 }
 
+VISUAL_METRIC_TERMS = (
+    "rol",
+    "receita operacional líquida",
+    "receita operacional liquida",
+    "vendas líquidas",
+    "vendas liquidas",
+    "lançamentos",
+    "lancamentos",
+    "unidades produzidas",
+    "margem bruta",
+    "ebitda",
+    "lucro líquido",
+    "lucro liquido",
+    "geração de caixa",
+    "geracao de caixa",
+    "repasses",
+)
+
+CRITICAL_METRIC_TERMS = (
+    "rol",
+    "receita operacional líquida",
+    "receita operacional liquida",
+    "receita líquida",
+    "receita liquida",
+    "vendas líquidas",
+    "vendas liquidas",
+    "lançamentos",
+    "lancamentos",
+    "unidades produzidas",
+    "unidades vendidas",
+    "margem bruta",
+    "ebitda",
+    "lucro líquido",
+    "lucro liquido",
+    "lucro líquido ajustado",
+    "lucro liquido ajustado",
+    "geração de caixa",
+    "geracao de caixa",
+    "repasses",
+    "venda de ativos",
+    "dívida líquida",
+    "divida liquida",
+    "land bank",
+    "vgv",
+)
+
 
 @dataclass(frozen=True)
 class Chunk:
@@ -114,7 +160,7 @@ class SemanticChunker:
     def select_relevant_chunks(
         self,
         chunks: list[Chunk],
-        top_k: int = 8,
+        top_k: int = 20,
         max_total_chars: int | None = None,
     ) -> list[Chunk]:
         """Seleciona os chunks mais relevantes respeitando orçamento opcional."""
@@ -215,6 +261,10 @@ class SemanticChunker:
             for tag, terms in SEMANTIC_PROFILES.items()
             if any(_normalize(term) in normalized for term in terms)
         ]
+        if any(_normalize(term) in normalized for term in VISUAL_METRIC_TERMS):
+            tags.append("visual_metric_page")
+        if any(_normalize(term) in normalized for term in CRITICAL_METRIC_TERMS):
+            tags.append("metricas_criticas")
         if _has_table_shape(text):
             tags.append("tabela")
         return tuple(sorted(set(tags)))
@@ -228,6 +278,12 @@ class SemanticChunker:
             weight = 3 if tag in {"operacional", "financeiro"} else 2
             score += hits * weight
         score += len(tags) * 2
+        visual_hits = sum(1 for term in VISUAL_METRIC_TERMS if _normalize(term) in normalized)
+        score += visual_hits * 12
+        critical_hits = sum(1 for term in CRITICAL_METRIC_TERMS if _normalize(term) in normalized)
+        score += critical_hits * 8
+        if critical_hits and _has_numeric_signal(text):
+            score += 10
         if _has_table_shape(text):
             score += 5
         if "%" in text or "r$" in normalized or "brl" in normalized:
@@ -253,3 +309,12 @@ def _has_table_shape(value: str) -> bool:
     numeric_lines = sum(1 for line in lines if any(char.isdigit() for char in line))
     percent_lines = sum(1 for line in lines if "%" in line)
     return len(lines) >= 3 and (numeric_lines >= 2 or percent_lines >= 2)
+
+
+def _has_numeric_signal(value: str) -> bool:
+    """Detecta se o texto contém sinais numéricos relevantes para métricas."""
+    normalized = _normalize(value)
+    return bool(
+        re.search(r"\d+[,.]?\d*\s*(%|p\.p\.|milhões|milhoes|bilhões|bilhoes|k|mm|r\$|us\$)", normalized)
+        or re.search(r"\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b", normalized)
+    )

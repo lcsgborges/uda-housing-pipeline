@@ -208,7 +208,7 @@ class ExtractionService:
         chunks = self.chunker.build_chunks(pages_text)
         relevant_chunks = self.chunker.select_relevant_chunks(
             chunks,
-            top_k=12,
+            top_k=20,
             max_total_chars=self.settings.extraction_context_max_chars,
         )
         context = "\n\n".join(_format_chunk_for_llm(chunk) for chunk in relevant_chunks)
