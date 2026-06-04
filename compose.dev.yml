@@ -8,6 +8,7 @@ x-project-labels: &project-labels
 x-api-environment: &api-environment
   APP_ENV: ${APP_ENV:-dev}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  PYTHONPATH: /app
   DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-uda}:${POSTGRES_PASSWORD:-uda}@postgres:5432/${POSTGRES_DB:-uda}
   DOCUMENTS_DIR: /app/data/documents
   STORAGE_BACKEND: rustfs
