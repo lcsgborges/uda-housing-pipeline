@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 
 from app.core.text import normalize_for_search
+from app.modules.metrics.catalog import metric_terms_for_category
 
 SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
     "operacional": (
@@ -17,6 +18,7 @@ SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
         "repasse",
         "obra",
         "entrega",
+        *metric_terms_for_category("operacional"),
     ),
     "financeiro": (
         "financeiro",
@@ -30,6 +32,19 @@ SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
         "resultado",
         "patrimônio",
         "roe",
+        *metric_terms_for_category("financeiro"),
+    ),
+    "mercado": (
+        "conjuntura habitacional",
+        "mercado imobiliário",
+        "mercado imobiliario",
+        "credito imobiliario",
+        "crédito imobiliário",
+        "financiamento habitacional",
+        "taxa de juros",
+        "preço de imóveis",
+        "preco de imoveis",
+        *metric_terms_for_category("mercado"),
     ),
     "periodo": (
         "trimestre",

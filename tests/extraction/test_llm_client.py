@@ -189,4 +189,6 @@ def test_prompt_builders_incluem_contexto_e_document_ref():
 
     assert "Empresa: MRV" in prompt
     assert "conteudo" in prompt
+    assert "vendas_liquidas" in llm_client.SYSTEM_PROMPT
+    assert "Catálogo de métricas" in llm_client.SYSTEM_PROMPT
     assert "doc-1" in batch_prompt

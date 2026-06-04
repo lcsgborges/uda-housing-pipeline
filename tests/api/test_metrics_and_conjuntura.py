@@ -44,12 +44,26 @@ async def test_consulta_metricas(client, db_session):
         source_excerpt="Vendas líquidas totalizaram...",
         confidence=0.92,
     )
-    db_session.add(metric)
+    weaker_metric = Metric(
+        company_id=company.id,
+        document_id=document.id,
+        metric_name="vendas_liquidas",
+        metric_category="operacional",
+        period_year=2025,
+        period_quarter=3,
+        value=None,
+        unit="R$",
+        currency="BRL",
+        source_page=4,
+        source_excerpt="Vendas líquidas aparecem em tabela comparativa.",
+        confidence=0.99,
+    )
+    db_session.add_all([metric, weaker_metric])
     await db_session.commit()
 
     resp_metrics = client.get("/api/metrics")
     assert resp_metrics.status_code == 200
-    assert len(resp_metrics.json()) == 1
+    assert len(resp_metrics.json()) == 2
 
     resp_filtered = client.get(
         "/api/metrics",
@@ -61,7 +75,7 @@ async def test_consulta_metricas(client, db_session):
         },
     )
     assert resp_filtered.status_code == 200
-    assert len(resp_filtered.json()) == 1
+    assert len(resp_filtered.json()) == 2
 
     resp_empty = client.get("/api/metrics", params={"empresa": "MRV", "ano": 2024})
     assert resp_empty.status_code == 200
@@ -80,7 +94,12 @@ async def test_consulta_metricas(client, db_session):
     assert resp_conjuntura.status_code == 200
     payload = resp_conjuntura.json()
     assert payload["empresa"] == "MRV"
+    assert len(payload["metricas"]) == 1
     assert payload["metricas"][0]["nome"] == "vendas_liquidas"
+    assert payload["metricas"][0]["categoria"] == "operacional"
+    assert payload["metricas"][0]["valor"] == 123.0
+    assert payload["metricas"][0]["qualidade"]["camada"] == "gold"
+    assert payload["metricas"][0]["qualidade"]["nivel"] == "alta"
     assert resp_conjuntura_ticker.status_code == 200
     assert resp_metric.status_code == 200
     assert resp_metric_missing.status_code == 404

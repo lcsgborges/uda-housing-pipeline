@@ -46,12 +46,20 @@ class MetricRead(BaseModel):
     confidence: float
 
 
+class ConjunturaQuality(BaseModel):
+    camada: str
+    nivel: str
+    score: int
+
+
 class ConjunturaMetricItem(BaseModel):
     nome: str
+    categoria: str | None
     valor: float | None
     unidade: str | None
     fonte: dict
     confianca: float
+    qualidade: ConjunturaQuality
 
 
 class ConjunturaResponse(BaseModel):

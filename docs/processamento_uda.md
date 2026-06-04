@@ -34,6 +34,7 @@ A pilha escolhida é solução nativa:
 O prompt instrui o modelo a:
 
 - extrair apenas métricas explicitamente suportadas pelo contexto;
+- usar o catálogo canônico de métricas habitacionais quando houver alias ou sinônimo;
 - priorizar valores absolutos em relatórios de RI;
 - aceitar percentuais quando o documento for boletim/tabela comparativa;
 - usar `null` para ausentes;
@@ -44,6 +45,9 @@ Arquivos principais:
 
 - `app/modules/extraction/llm_client.py`
 - `app/modules/metrics/schemas.py`
+- `app/modules/metrics/catalog.py`
+
+Após a resposta estruturada da LLM, o serviço normaliza `metric_name` pelo catálogo e enriquece metadados seguros, como `metric_category`, `unit` e `currency`, sem inventar valores.
 
 ### 3. Contrato semântico
 
@@ -71,3 +75,5 @@ Endpoints principais:
 - `GET /api/documents`
 
 O endpoint de conjuntura resolve empresa por nome ou ticker e retorna métricas com fonte, página, trecho e confiança.
+
+Para consumo analítico, `/api/conjuntura` funciona como camada final: quando há mais de uma extração para a mesma métrica canônica, a API escolhe a melhor evidência por qualidade calculada, considerando valor presente, confiança, página, trecho-fonte e presença no catálogo. A lista completa e bruta continua disponível em `/api/metrics`.

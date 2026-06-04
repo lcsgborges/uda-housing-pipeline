@@ -72,6 +72,34 @@ class _BatchLLM:
         )
 
 
+class _AliasMetricLLM:
+    def extract_metrics_batch(self, payloads):
+        return ExtractedBatchResponse.model_validate(
+            {
+                "documents": [
+                    {
+                        "document_ref": payloads[0]["document_ref"],
+                        "metrics": [
+                            {
+                                "company": "MRV",
+                                "period_year": 2025,
+                                "period_quarter": 3,
+                                "metric_name": "vendas_contratadas_liquidas",
+                                "metric_category": None,
+                                "value": 200.0,
+                                "unit": None,
+                                "currency": None,
+                                "source_page": 1,
+                                "source_excerpt": "Vendas contratadas líquidas de R$ 200 milhões.",
+                                "confidence": 0.88,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+
 async def _create_company_and_document(db_session, *, status=DocumentStatus.downloaded):
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
     db_session.add(company)
@@ -114,6 +142,23 @@ async def test_process_document_persiste_metricas_e_linhagem(db_session):
     assert lineage[0].metric_id == metrics[0].id
     assert document.status == DocumentStatus.processed
     assert document.error_message is None
+
+
+@pytest.mark.asyncio
+async def test_process_document_normaliza_alias_e_enriquece_metadados(db_session):
+    company, document = await _create_company_and_document(db_session)
+    service = ExtractionService(db_session)
+    service.parser = _FakeParser()
+    service.llm = _AliasMetricLLM()
+
+    await service.process_document(document, company_name=company.name)
+
+    metric = (await db_session.scalars(select(Metric))).one()
+
+    assert metric.metric_name == "vendas_liquidas"
+    assert metric.metric_category == "operacional"
+    assert metric.unit == "R$"
+    assert metric.currency == "BRL"
 
 
 @pytest.mark.asyncio

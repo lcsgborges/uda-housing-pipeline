@@ -178,6 +178,16 @@ O contrato é definido por `ExtractedMetric` e `ExtractedMetricBatch` (Pydantic)
 
 Detalhamento da etapa B/C do desafio: `docs/processamento_uda.md`.
 
+## Vocabulário e camada Gold
+
+A extração agora usa um catálogo curado de métricas habitacionais (`app/modules/metrics/catalog.py`) para reduzir variação de nomes como `vendas_contratadas_liquidas` versus `vendas_liquidas`.
+
+Esse catálogo é aplicado em três pontos:
+
+- prompt da LLM, com vocabulário canônico e aliases;
+- pós-processamento, normalizando nomes e preenchendo categoria/unidade/moeda quando seguros;
+- endpoint `/api/conjuntura`, que atua como camada Gold: mantém `/api/metrics` como visão bruta auditável, mas deduplica a conjuntura por métrica e escolhe a melhor evidência por valor presente, confiança, página e trecho de fonte.
+
 ## Linhagem dos dados
 
 Tabela `data_lineage` armazena, para cada métrica:

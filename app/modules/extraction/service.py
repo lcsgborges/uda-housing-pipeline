@@ -11,6 +11,7 @@ from app.modules.extraction.chunking import Chunk, SemanticChunker
 from app.modules.extraction.llm_client import build_llm_client
 from app.modules.extraction.pdf_parser import PDFParser
 from app.modules.lineage.models import DataLineage
+from app.modules.metrics.catalog import canonical_metric_name, find_metric_definition
 from app.modules.metrics.models import Metric
 from app.modules.storage.service import build_object_storage
 
@@ -119,16 +120,23 @@ class ExtractionService:
         metric_rows: list[Metric] = []
         lineage_rows: list[DataLineage] = []
         for item in metrics:
+            metric_name = canonical_metric_name(item.metric_name)
+            definition = find_metric_definition(metric_name)
+            unit = item.unit or (definition.default_unit if definition else None)
+            currency = item.currency
+            if currency is None and unit != "%":
+                currency = definition.default_currency if definition else None
             metric = Metric(
                 company_id=document.company_id,
                 document_id=document.id,
-                metric_name=item.metric_name,
-                metric_category=item.metric_category,
+                metric_name=metric_name,
+                metric_category=item.metric_category
+                or (definition.category if definition else None),
                 period_year=item.period_year,
                 period_quarter=item.period_quarter,
                 value=item.value,
-                unit=item.unit,
-                currency=item.currency,
+                unit=unit,
+                currency=currency,
                 source_page=item.source_page,
                 source_excerpt=item.source_excerpt,
                 confidence=item.confidence,
