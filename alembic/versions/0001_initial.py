@@ -40,7 +40,6 @@ def upgrade() -> None:
         "ignored_duplicate",
         name="documentstatus",
     )
-    status_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "documents",
