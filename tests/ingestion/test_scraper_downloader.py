@@ -36,7 +36,9 @@ def test_ri_scraper_encontra_pdfs_e_prioriza_previa(monkeypatch):
     html = """
     <html>
       <a href="/downloads/previa-3t25.pdf">Previa Operacional 3T25</a>
-            <a href="https://api.mziq.com/mzfilemanager/v2/d/abc/arquivo?origin=2">Resultado 3T25</a>
+            <a href="https://api.mziq.com/mzfilemanager/v2/d/abc/arquivo?origin=2">
+                Resultado 3T25
+            </a>
       <a href="/downloads/apresentacao-3t25.pdf">Apresentação institucional</a>
       <a href="/downloads/noticia.html">Notícia</a>
     </html>
