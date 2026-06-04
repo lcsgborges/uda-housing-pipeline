@@ -1,7 +1,6 @@
-from datetime import datetime
-
 import pytest
 
+from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.lineage.models import DataLineage
@@ -28,7 +27,7 @@ async def test_lineage_repository_create_many_e_schema(db_session):
         quarter=3,
         document_type="resultado_trimestral",
         status=DocumentStatus.processed,
-        collected_at=datetime.utcnow(),
+        collected_at=utc_now(),
     )
     db_session.add(document)
     await db_session.commit()
@@ -58,7 +57,7 @@ async def test_lineage_repository_create_many_e_schema(db_session):
                 source_excerpt="Vendas líquidas 10",
                 extraction_model="fake-model",
                 extraction_prompt_version="v1",
-                extracted_at=datetime.utcnow(),
+                extracted_at=utc_now(),
             )
         ]
     )

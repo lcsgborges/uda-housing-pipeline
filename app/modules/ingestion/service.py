@@ -1,12 +1,12 @@
 import logging
 import re
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.text import normalize_for_search
+from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.documents.repository import DocumentRepository
@@ -74,7 +74,7 @@ class IngestionService:
         title: str | None,
         extract_after_ingestion: bool = True,
     ) -> str:
-        collected_at = datetime.utcnow()
+        collected_at = utc_now()
         content = self.downloader.download(url, self.settings.documents_dir)
         file_hash = sha256_bytes(content)
 

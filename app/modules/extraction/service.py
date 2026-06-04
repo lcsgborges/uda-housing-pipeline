@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core.config import get_settings
+from app.core.time import utc_now
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.extraction.chunking import Chunk, SemanticChunker
 from app.modules.extraction.llm_client import build_llm_client
@@ -151,13 +151,13 @@ class ExtractionService:
                     if self.settings.llm_provider == "openai"
                     else "fake-model",
                     extraction_prompt_version=self.settings.extraction_prompt_version,
-                    extracted_at=datetime.utcnow(),
+                    extracted_at=utc_now(),
                 )
             )
 
         self.session.add_all(lineage_rows)
         document.status = DocumentStatus.processed
-        document.processed_at = datetime.utcnow()
+        document.processed_at = utc_now()
         document.error_message = None
         self.session.add(document)
         await self.session.commit()

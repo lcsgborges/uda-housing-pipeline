@@ -1,7 +1,6 @@
-from datetime import datetime
-
 import pytest
 
+from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.ingestion import service as ingestion_module
@@ -141,7 +140,7 @@ async def test_ingest_link_duplicado_cria_registro_ignored(db_session):
         quarter=1,
         document_type="previa_operacional",
         status=DocumentStatus.processed,
-        collected_at=datetime.utcnow(),
+        collected_at=utc_now(),
     )
     await service.document_repo.create(existing)
 

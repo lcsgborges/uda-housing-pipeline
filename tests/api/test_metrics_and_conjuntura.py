@@ -1,7 +1,6 @@
-from datetime import datetime
-
 import pytest
 
+from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.metrics.models import Metric
@@ -24,8 +23,8 @@ async def test_consulta_metricas(client, db_session):
         quarter=3,
         document_type="previa_operacional",
         status=DocumentStatus.processed,
-        collected_at=datetime.utcnow(),
-        processed_at=datetime.utcnow(),
+        collected_at=utc_now(),
+        processed_at=utc_now(),
     )
     db_session.add(document)
     await db_session.commit()
@@ -109,8 +108,8 @@ async def test_consulta_empresa_ignora_acentos(client, db_session):
         quarter=2,
         document_type="previa_operacional",
         status=DocumentStatus.processed,
-        collected_at=datetime.utcnow(),
-        processed_at=datetime.utcnow(),
+        collected_at=utc_now(),
+        processed_at=utc_now(),
     )
     db_session.add(document)
     await db_session.commit()

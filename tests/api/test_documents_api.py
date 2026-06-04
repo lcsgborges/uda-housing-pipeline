@@ -1,7 +1,6 @@
-from datetime import datetime
-
 import pytest
 
+from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.documents.repository import DocumentRepository
@@ -26,7 +25,7 @@ async def test_lista_busca_e_atualiza_documentos(client, db_session):
             quarter=3,
             document_type="previa_operacional",
             status=DocumentStatus.downloaded,
-            collected_at=datetime.utcnow(),
+            collected_at=utc_now(),
         )
     )
     document.status = DocumentStatus.processed

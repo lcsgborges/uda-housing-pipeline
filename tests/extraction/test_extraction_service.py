@@ -1,9 +1,9 @@
-from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
 
+from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.extraction.service import ExtractionService, _format_chunk_for_llm, _is_storage_uri
@@ -88,7 +88,7 @@ async def _create_company_and_document(db_session, *, status=DocumentStatus.down
         quarter=3,
         document_type="previa_operacional",
         status=status,
-        collected_at=datetime.utcnow(),
+        collected_at=utc_now(),
     )
     db_session.add(document)
     await db_session.commit()
@@ -140,7 +140,7 @@ async def test_process_pending_documents_batch_marca_nao_retornado_como_failed(d
         quarter=3,
         document_type="resultado_trimestral",
         status=DocumentStatus.downloaded,
-        collected_at=datetime.utcnow(),
+        collected_at=utc_now(),
     )
     db_session.add(second)
     await db_session.commit()
