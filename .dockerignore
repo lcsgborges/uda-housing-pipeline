@@ -10,9 +10,9 @@ __pycache__
 *.db
 data/
 htmlcov/
+site/
 pipeline_uda.egg-info/
 tests/
-docs/
 dags/
 .env
 .env.*
