@@ -2,6 +2,11 @@
 
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
+LABEL org.opencontainers.image.authors="Lucas Guimarães Borges <lcsgborges@gmail.com>" \
+      org.opencontainers.image.source="https://github.com/lcsgborges/uda-housing-pipeline" \
+      org.opencontainers.image.url="https://github.com/lcsgborges/uda-housing-pipeline" \
+      org.opencontainers.image.title="Housing Data Intelligence Dev"
+
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PYTHONUNBUFFERED=1 \

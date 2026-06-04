@@ -4,6 +4,13 @@ Pipeline UDA para coletar documentos não estruturados do mercado habitacional, 
 
 O projeto foi desenhado para transformar PDFs de Relações com Investidores, resultados trimestrais, prévias operacionais e boletins de conjuntura em dados relacionais com rastreabilidade de origem.
 
+## Autoria e Repositório
+
+- Autor: Lucas Guimarães Borges
+- E-mail: [lcsgborges@gmail.com](mailto:lcsgborges@gmail.com)
+- GitHub: [lcsgborges](https://github.com/lcsgborges)
+- Repositório: [lcsgborges/uda-housing-pipeline](https://github.com/lcsgborges/uda-housing-pipeline)
+
 ## Objetivo
 
 Transformar documentos não estruturados em métricas habitacionais auditáveis:

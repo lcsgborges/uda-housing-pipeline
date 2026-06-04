@@ -4,6 +4,18 @@ version = "0.1.0"
 description = "Pipeline UDA para conjuntura habitacional"
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+  { name = "Lucas Guimarães Borges", email = "lcsgborges@gmail.com" }
+]
+maintainers = [
+  { name = "Lucas Guimarães Borges", email = "lcsgborges@gmail.com" }
+]
+keywords = ["uda", "housing", "fastapi", "llm", "mkdocs"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Framework :: FastAPI",
+]
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.30.0",
@@ -20,6 +32,11 @@ dependencies = [
   "openai>=1.54.0",
   "python-dotenv>=1.0.1"
 ]
+
+[project.urls]
+Repository = "https://github.com/lcsgborges/uda-housing-pipeline"
+Author = "https://github.com/lcsgborges"
+Documentation = "https://github.com/lcsgborges/uda-housing-pipeline"
 
 [project.optional-dependencies]
 dev = [

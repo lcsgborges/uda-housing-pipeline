@@ -1,5 +1,10 @@
 name: hdi-dev
 
+x-project-labels: &project-labels
+  org.opencontainers.image.authors: Lucas Guimarães Borges <lcsgborges@gmail.com>
+  org.opencontainers.image.source: https://github.com/lcsgborges/uda-housing-pipeline
+  org.opencontainers.image.url: https://github.com/lcsgborges/uda-housing-pipeline
+
 x-api-environment: &api-environment
   APP_ENV: ${APP_ENV:-dev}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -29,6 +34,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: hdi-dev-api
+    labels:
+      <<: *project-labels
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
@@ -63,6 +70,8 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: hdi-dev-docs
+    labels:
+      <<: *project-labels
     ports:
       - "${DOCS_PORT:-8001}:8001"
     environment:

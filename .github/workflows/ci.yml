@@ -1,5 +1,8 @@
 name: CI
 
+# Author: Lucas Guimarães Borges <lcsgborges@gmail.com> (https://github.com/lcsgborges)
+# Repository: https://github.com/lcsgborges/uda-housing-pipeline
+
 on:
   push:
     branches:

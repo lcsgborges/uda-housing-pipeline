@@ -1,5 +1,10 @@
 name: hdi-prod
 
+x-project-labels: &project-labels
+  org.opencontainers.image.authors: Lucas Guimarães Borges <lcsgborges@gmail.com>
+  org.opencontainers.image.source: https://github.com/lcsgborges/uda-housing-pipeline
+  org.opencontainers.image.url: https://github.com/lcsgborges/uda-housing-pipeline
+
 x-api-environment: &api-environment
   APP_ENV: ${APP_ENV:-prod}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -31,6 +36,8 @@ services:
       target: api
     image: hdi-api:${APP_VERSION:-latest}
     container_name: hdi-prod-api
+    labels:
+      <<: *project-labels
     restart: unless-stopped
     ports:
       - "${API_PORT:-8000}:8000"
@@ -63,6 +70,8 @@ services:
       target: docs
     image: hdi-docs:${APP_VERSION:-latest}
     container_name: hdi-prod-docs
+    labels:
+      <<: *project-labels
     restart: unless-stopped
     ports:
       - "${DOCS_PORT:-8001}:80"

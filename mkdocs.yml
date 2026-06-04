@@ -1,7 +1,9 @@
 site_name: Housing Data Intelligence
 site_description: Documentação técnica do pipeline UDA para conjuntura habitacional.
-site_author: Housing Data Intelligence
-repo_name: housing-data-intelligence
+site_author: Lucas Guimarães Borges <lcsgborges@gmail.com>
+repo_name: lcsgborges/uda-housing-pipeline
+repo_url: https://github.com/lcsgborges/uda-housing-pipeline
+copyright: Copyright &copy; 2026 Lucas Guimarães Borges
 
 theme:
   name: material
@@ -31,6 +33,7 @@ theme:
 
 nav:
   - Início: index.md
+  - Sobre: sobre.md
   - Projeto:
       - Objetivo e Escopo: projeto/objetivo.md
       - Arquitetura: projeto/arquitetura.md
@@ -67,4 +70,11 @@ markdown_extensions:
       alternate_style: true
 
 extra:
-  social: []
+  author_email: lcsgborges@gmail.com
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/lcsgborges
+      name: GitHub de Lucas Guimarães Borges
+    - icon: fontawesome/solid/envelope
+      link: mailto:lcsgborges@gmail.com
+      name: E-mail de Lucas Guimarães Borges

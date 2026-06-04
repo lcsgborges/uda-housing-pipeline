@@ -4,6 +4,13 @@ Documentação técnica do pipeline UDA para análise de dados não estruturados
 
 O projeto transforma PDFs de Relações com Investidores e boletins de conjuntura em métricas estruturadas, auditáveis e consultáveis por API. A extração usa LLM com contrato Pydantic, catálogo canônico de métricas, persistência relacional e linhagem da evidência original.
 
+## Autoria e Repositório
+
+- Autor: Lucas Guimarães Borges
+- E-mail: [lcsgborges@gmail.com](mailto:lcsgborges@gmail.com)
+- GitHub: [lcsgborges](https://github.com/lcsgborges)
+- Repositório: [lcsgborges/uda-housing-pipeline](https://github.com/lcsgborges/uda-housing-pipeline)
+
 ## O Que Este Projeto Entrega
 
 - Coleta documentos em fontes de RI cadastradas por empresa.
