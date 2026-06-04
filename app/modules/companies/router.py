@@ -30,8 +30,7 @@ CompanyId = Annotated[int, Path(description="ID da empresa cadastrada.")]
     status_code=201,
     summary="Cadastrar empresa",
     description=(
-        "Cadastra uma empresa monitorada, incluindo ticker e URL de Relações com "
-        "Investidores."
+        "Cadastra uma empresa monitorada, incluindo ticker e URL de Relações com Investidores."
     ),
 )
 async def create_company(payload: CompanyCreate, service: ServiceDep):

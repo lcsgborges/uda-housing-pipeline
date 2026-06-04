@@ -1,6 +1,7 @@
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
-from types import SimpleNamespace
 
 from app.modules.documents.service import DocumentService
 
@@ -34,4 +35,3 @@ async def test_document_service_get_or_404_found():
     service = DocumentService(StubDocumentRepository(document=document))
 
     assert await service.get_or_404(1) is document
-

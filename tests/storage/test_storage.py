@@ -39,7 +39,9 @@ def test_build_endpoint_url_para_rustfs_local_sem_tls():
 
 
 def test_build_endpoint_url_preserva_url_com_scheme():
-    assert _build_endpoint_url(endpoint="https://rustfs:9000", secure=False) == "https://rustfs:9000"
+    assert (
+        _build_endpoint_url(endpoint="https://rustfs:9000", secure=False) == "https://rustfs:9000"
+    )
     assert _build_endpoint_url(endpoint="rustfs:9000", secure=True) == "https://rustfs:9000"
 
 

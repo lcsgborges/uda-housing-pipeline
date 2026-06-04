@@ -276,10 +276,7 @@ def test_build_context_full_scan_e_chunking(monkeypatch):
     monkeypatch.setattr(service.settings, "extraction_full_scan_max_chars", 20)
     monkeypatch.setattr(service.settings, "extraction_context_max_chars", 300)
     chunked = service._build_context(
-        [
-            "DESEMPENHO OPERACIONAL\n"
-            + "\n".join(["Vendas liquidas R$ 100 milhoes"] * 30)
-        ]
+        ["DESEMPENHO OPERACIONAL\n" + "\n".join(["Vendas liquidas R$ 100 milhoes"] * 30)]
     )
 
     assert full_scan.startswith("[MODO full_scan]")

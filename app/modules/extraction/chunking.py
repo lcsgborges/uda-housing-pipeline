@@ -202,9 +202,7 @@ class SemanticChunker:
         if _numeric_density(line) > 0.25:
             return False
         has_semantic_term = any(
-            _normalize(term) in normalized
-            for terms in SEMANTIC_PROFILES.values()
-            for term in terms
+            _normalize(term) in normalized for terms in SEMANTIC_PROFILES.values() for term in terms
         )
         is_visual_heading = line.isupper() or line.istitle() or normalized.endswith(":")
         return has_semantic_term and is_visual_heading
