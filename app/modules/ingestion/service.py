@@ -1,10 +1,9 @@
 import logging
 import re
 from datetime import datetime
-from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.modules.companies.models import Company
@@ -14,12 +13,13 @@ from app.modules.extraction.service import ExtractionService
 from app.modules.ingestion.downloader import PDFDownloader
 from app.modules.ingestion.hashing import sha256_bytes
 from app.modules.ingestion.scraper import RIScraper
+from app.modules.storage.service import build_object_storage
 
 logger = logging.getLogger(__name__)
 
 
 class IngestionService:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
         settings = get_settings()
         self.settings = settings
@@ -27,12 +27,14 @@ class IngestionService:
         self.downloader = PDFDownloader(settings.request_timeout_seconds, settings.user_agent)
         self.document_repo = DocumentRepository(session)
         self.extraction_service = ExtractionService(session)
+        self.storage = build_object_storage()
 
-    def run(self, company_id: int | None = None) -> dict:
+    async def run(self, company_id: int | None = None, extract_after_ingestion: bool = True) -> dict:
         stmt = select(Company).where(Company.is_active.is_(True))
         if company_id is not None:
             stmt = stmt.where(Company.id == company_id)
-        companies = list(self.session.scalars(stmt).all())
+        result = await self.session.scalars(stmt)
+        companies = list(result.all())
 
         discovered = 0
         processed = 0
@@ -42,7 +44,12 @@ class IngestionService:
             links = self.scraper.find_pdf_links(company.ri_url)
             for link in links:
                 discovered += 1
-                outcome = self._ingest_link(company, link["url"], link.get("title"))
+                outcome = await self._ingest_link(
+                    company,
+                    link["url"],
+                    link.get("title"),
+                    extract_after_ingestion=extract_after_ingestion,
+                )
                 if outcome == "processed":
                     processed += 1
                 elif outcome == "ignored":
@@ -55,12 +62,18 @@ class IngestionService:
             "ignored_duplicates": ignored,
         }
 
-    def _ingest_link(self, company: Company, url: str, title: str | None) -> str:
+    async def _ingest_link(
+        self,
+        company: Company,
+        url: str,
+        title: str | None,
+        extract_after_ingestion: bool = True,
+    ) -> str:
         collected_at = datetime.utcnow()
         content = self.downloader.download(url, self.settings.documents_dir)
         file_hash = sha256_bytes(content)
 
-        existing = self.document_repo.get_by_hash(file_hash)
+        existing = await self.document_repo.get_by_hash(file_hash)
         if existing:
             duplicate = Document(
                 company_id=company.id,
@@ -76,12 +89,12 @@ class IngestionService:
                 processed_at=None,
                 error_message="Documento duplicado por hash.",
             )
-            self.document_repo.create(duplicate)
+            await self.document_repo.create(duplicate)
             return "ignored"
 
         filename = f"{company.ticker.lower()}_{file_hash[:12]}.pdf"
-        file_path = Path(self.settings.documents_dir) / filename
-        file_path.write_bytes(content)
+        storage_key = f"{company.ticker.lower()}/{filename}"
+        stored = self.storage.store(key=storage_key, content=content)
 
         year, quarter = infer_period(url=url, title=title or "")
         document_type = infer_document_type(title or url)
@@ -89,7 +102,7 @@ class IngestionService:
             company_id=company.id,
             title=title,
             original_url=url,
-            local_path=str(file_path),
+            local_path=stored.uri,
             file_hash=file_hash,
             year=year,
             quarter=quarter,
@@ -99,10 +112,11 @@ class IngestionService:
             processed_at=None,
             error_message=None,
         )
-        document = self.document_repo.create(document)
+        document = await self.document_repo.create(document)
 
-        self.extraction_service.process_document(document, company_name=company.name)
-        logger.info("Documento processado: company=%s url=%s", company.ticker, url)
+        if extract_after_ingestion:
+            await self.extraction_service.process_document(document, company_name=company.name)
+        logger.info("Documento ingerido: company=%s url=%s", company.ticker, url)
         return "processed"
 
 

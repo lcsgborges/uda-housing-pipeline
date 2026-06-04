@@ -1,69 +1,230 @@
 import re
+import unicodedata
 from dataclasses import dataclass
 
-KEYWORDS = {
-    "lançamentos",
-    "vendas líquidas",
-    "vendas brutas",
-    "distratos",
-    "vgv",
-    "unidades vendidas",
-    "estoque",
-    "landbank",
-    "receita",
-    "lucro",
-    "margem",
-    "trimestre",
-    "1t",
-    "2t",
-    "3t",
-    "4t",
+SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
+    "operacional": (
+        "operacional",
+        "desempenho operacional",
+        "lancamento",
+        "venda",
+        "distrato",
+        "vgv",
+        "unidade",
+        "estoque",
+        "landbank",
+        "repasse",
+        "obra",
+        "entrega",
+    ),
+    "financeiro": (
+        "financeiro",
+        "desempenho financeiro",
+        "receita",
+        "lucro",
+        "margem",
+        "ebitda",
+        "caixa",
+        "divida",
+        "resultado",
+        "patrimonio",
+        "roe",
+    ),
+    "periodo": (
+        "trimestre",
+        "1t",
+        "2t",
+        "3t",
+        "4t",
+        "9m",
+        "ano",
+        "2024",
+        "2025",
+        "2026",
+    ),
+    "tabela": (
+        "total",
+        "comparacao",
+        "variacao",
+        "balanco",
+        "conjuntura",
+        "x 2t",
+        "x 3t",
+        "nove meses",
+    ),
 }
 
 
-@dataclass
+@dataclass(frozen=True)
 class Chunk:
     page: int
     text: str
     score: int
+    ordinal: int
+    heading: str | None = None
+    tags: tuple[str, ...] = ()
 
 
 class SemanticChunker:
-    def __init__(self, max_chars: int = 2200):
+    """Builds semantic chunks for retrieval, not rule-based metric extraction."""
+
+    def __init__(self, max_chars: int = 2200, overlap_chars: int = 240):
         self.max_chars = max_chars
+        self.overlap_chars = overlap_chars
 
     def build_chunks(self, pages_text: list[str]) -> list[Chunk]:
         chunks: list[Chunk] = []
-        for idx, page_text in enumerate(pages_text, start=1):
-            blocks = self._split_page(page_text)
-            for block in blocks:
-                score = self._score_chunk(block)
-                chunks.append(Chunk(page=idx, text=block, score=score))
+        ordinal = 0
+        for page_index, page_text in enumerate(pages_text, start=1):
+            for heading, block in self._split_page_into_semantic_blocks(page_text):
+                for text in self._bound_block(block):
+                    tags = self._tags_for(text, heading=heading)
+                    score = self._score_chunk(text, heading=heading, tags=tags)
+                    chunks.append(
+                        Chunk(
+                            page=page_index,
+                            text=text,
+                            score=score,
+                            ordinal=ordinal,
+                            heading=heading,
+                            tags=tags,
+                        )
+                    )
+                    ordinal += 1
         return chunks
 
-    def select_relevant_chunks(self, chunks: list[Chunk], top_k: int = 8) -> list[Chunk]:
-        ranked = sorted(chunks, key=lambda c: c.score, reverse=True)
-        positives = [chunk for chunk in ranked if chunk.score > 0]
-        return positives[:top_k] if positives else ranked[:top_k]
+    def select_relevant_chunks(
+        self,
+        chunks: list[Chunk],
+        top_k: int = 8,
+        max_total_chars: int | None = None,
+    ) -> list[Chunk]:
+        if not chunks:
+            return []
 
-    def _split_page(self, text: str) -> list[str]:
-        paragraphs = [x.strip() for x in re.split(r"\n\s*\n", text) if x.strip()]
-        if not paragraphs:
-            return [text[: self.max_chars]] if text else []
+        ranked = sorted(chunks, key=lambda c: (c.score, -c.ordinal), reverse=True)
+        selected = ranked[:top_k]
+
+        first_chunk = chunks[0]
+        if first_chunk.score > 0 and first_chunk not in selected:
+            selected.append(first_chunk)
+
+        selected = sorted(set(selected), key=lambda c: c.ordinal)
+        if max_total_chars is None:
+            return selected
+
+        bounded: list[Chunk] = []
+        budget = 0
+        for chunk in selected:
+            chunk_size = len(chunk.text)
+            if bounded and budget + chunk_size > max_total_chars:
+                continue
+            bounded.append(chunk)
+            budget += chunk_size
+            if budget >= max_total_chars:
+                break
+        return bounded or selected[:1]
+
+    def _split_page_into_semantic_blocks(self, text: str) -> list[tuple[str | None, str]]:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            return []
+
+        blocks: list[tuple[str | None, str]] = []
+        heading: str | None = None
+        current: list[str] = []
+
+        for line in lines:
+            if self._looks_like_heading(line):
+                if current:
+                    blocks.append((heading, "\n".join(current)))
+                    current = []
+                heading = line
+                continue
+            current.append(line)
+
+        if current:
+            blocks.append((heading, "\n".join(current)))
+
+        if not blocks:
+            return [(None, "\n".join(lines))]
+        return blocks
+
+    def _bound_block(self, text: str) -> list[str]:
+        if len(text) <= self.max_chars:
+            return [text]
+
+        paragraphs = [item.strip() for item in re.split(r"\n\s*\n", text) if item.strip()]
+        if len(paragraphs) <= 1:
+            paragraphs = [line.strip() for line in text.splitlines() if line.strip()]
 
         chunks: list[str] = []
         current = ""
         for paragraph in paragraphs:
             if len(current) + len(paragraph) + 2 <= self.max_chars:
-                current = f"{current}\n\n{paragraph}".strip()
-            else:
-                if current:
-                    chunks.append(current)
-                current = paragraph[: self.max_chars]
+                current = f"{current}\n{paragraph}".strip()
+                continue
+            if current:
+                chunks.append(current)
+            overlap = current[-self.overlap_chars :] if current else ""
+            current = f"{overlap}\n{paragraph}".strip() if overlap else paragraph
+
         if current:
-            chunks.append(current)
+            chunks.append(current[: self.max_chars])
         return chunks
 
-    def _score_chunk(self, text: str) -> int:
-        lowered = text.lower()
-        return sum(1 for keyword in KEYWORDS if keyword in lowered)
+    def _looks_like_heading(self, line: str) -> bool:
+        normalized = _normalize(line)
+        if len(line) > 90 or len(line.split()) > 10:
+            return False
+        if _numeric_density(line) > 0.25:
+            return False
+        has_semantic_term = any(
+            term in normalized for terms in SEMANTIC_PROFILES.values() for term in terms
+        )
+        is_visual_heading = line.isupper() or line.istitle() or normalized.endswith(":")
+        return has_semantic_term and is_visual_heading
+
+    def _tags_for(self, text: str, heading: str | None = None) -> tuple[str, ...]:
+        normalized = _normalize(f"{heading or ''}\n{text}")
+        tags = [
+            tag
+            for tag, terms in SEMANTIC_PROFILES.items()
+            if any(term in normalized for term in terms)
+        ]
+        if _has_table_shape(text):
+            tags.append("tabela")
+        return tuple(sorted(set(tags)))
+
+    def _score_chunk(self, text: str, *, heading: str | None, tags: tuple[str, ...]) -> int:
+        normalized = _normalize(f"{heading or ''}\n{text}")
+        score = 0
+        for tag, terms in SEMANTIC_PROFILES.items():
+            hits = sum(1 for term in terms if term in normalized)
+            weight = 3 if tag in {"operacional", "financeiro"} else 2
+            score += hits * weight
+        score += len(tags) * 2
+        if _has_table_shape(text):
+            score += 5
+        if "%" in text or "r$" in normalized or "brl" in normalized:
+            score += 3
+        return score
+
+
+def _normalize(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
+    ascii_text = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return ascii_text.casefold()
+
+
+def _numeric_density(value: str) -> float:
+    if not value:
+        return 0.0
+    return sum(char.isdigit() for char in value) / len(value)
+
+
+def _has_table_shape(value: str) -> bool:
+    lines = [line for line in value.splitlines() if line.strip()]
+    numeric_lines = sum(1 for line in lines if any(char.isdigit() for char in line))
+    percent_lines = sum(1 for line in lines if "%" in line)
+    return len(lines) >= 3 and (numeric_lines >= 2 or percent_lines >= 2)
