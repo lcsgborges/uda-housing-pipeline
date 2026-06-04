@@ -35,9 +35,7 @@ def test_chunking_identifica_titulo_e_tags_semanticas():
 
 def test_chunking_marca_pagina_metrica_visual_com_texto_curto():
     chunker = SemanticChunker(max_chars=400)
-    pages = [
-        "ROL\nVendas líquidas\nEBITDA\nMargem bruta\n"
-    ]
+    pages = ["ROL\nVendas líquidas\nEBITDA\nMargem bruta\n"]
 
     chunks = chunker.build_chunks(pages)
 

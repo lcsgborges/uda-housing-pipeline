@@ -315,6 +315,8 @@ def _has_numeric_signal(value: str) -> bool:
     """Detecta se o texto contém sinais numéricos relevantes para métricas."""
     normalized = _normalize(value)
     return bool(
-        re.search(r"\d+[,.]?\d*\s*(%|p\.p\.|milhões|milhoes|bilhões|bilhoes|k|mm|r\$|us\$)", normalized)
+        re.search(
+            r"\d+[,.]?\d*\s*(%|p\.p\.|milhões|milhoes|bilhões|bilhoes|k|mm|r\$|us\$)", normalized
+        )
         or re.search(r"\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b", normalized)
     )
