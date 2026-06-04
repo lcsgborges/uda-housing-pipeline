@@ -36,6 +36,7 @@ def test_ri_scraper_encontra_pdfs_e_prioriza_previa(monkeypatch):
     html = """
     <html>
       <a href="/downloads/previa-3t25.pdf">Previa Operacional 3T25</a>
+            <a href="https://api.mziq.com/mzfilemanager/v2/d/abc/arquivo?origin=2">Resultado 3T25</a>
       <a href="/downloads/apresentacao-3t25.pdf">Apresentação institucional</a>
       <a href="/downloads/noticia.html">Notícia</a>
     </html>
@@ -47,10 +48,11 @@ def test_ri_scraper_encontra_pdfs_e_prioriza_previa(monkeypatch):
     links = RIScraper(timeout=3, user_agent="agent").find_pdf_links("https://ri.mrv.com.br/base/")
 
     assert response.raise_for_status_called is True
-    assert len(links) == 2
+    assert len(links) == 3
     assert links[0]["title"] == "Previa Operacional 3T25"
     assert links[0]["url"] == "https://ri.mrv.com.br/downloads/previa-3t25.pdf"
     assert links[0]["score"] > links[1]["score"]
+    assert any(link["url"].startswith("https://api.mziq.com/mzfilemanager/") for link in links)
 
 
 def test_pdf_downloader_baixa_conteudo(monkeypatch, tmp_path):

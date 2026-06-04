@@ -29,13 +29,17 @@ class RIScraper:
 
         soup = BeautifulSoup(response.text, "html.parser")
         links: list[dict] = []
+        seen_urls: set[str] = set()
 
         for anchor in soup.find_all("a", href=True):
             href = anchor["href"]
             text = anchor.get_text(" ", strip=True) or ""
             absolute_url = urljoin(base_url, href)
-            if not re.search(r"\.pdf($|\?)", absolute_url.lower()):
+            if not self._is_document_link(absolute_url):
                 continue
+            if absolute_url in seen_urls:
+                continue
+            seen_urls.add(absolute_url)
             score = self._score_link(f"{text} {absolute_url}")
             links.append(
                 {
@@ -47,6 +51,14 @@ class RIScraper:
 
         links.sort(key=lambda item: item["score"], reverse=True)
         return links
+
+    def _is_document_link(self, url: str) -> bool:
+        """Reconhece PDFs diretos e links de gerenciadores de arquivos de RI."""
+        lowered = url.lower()
+        return bool(
+            re.search(r"\.pdf($|\?)", lowered)
+            or ("api.mziq.com" in lowered and "mzfilemanager" in lowered)
+        )
 
     def _score_link(self, text: str) -> int:
         """Pontua um link conforme termos relevantes aparecem no texto ou URL."""
