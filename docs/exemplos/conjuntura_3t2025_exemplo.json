@@ -1,0 +1,119 @@
+{
+  "document_type": "boletim_conjuntura",
+  "title": "Conjuntura do Setor Habitacional",
+  "period_year": 2025,
+  "period_quarter": 3,
+  "unit": "%",
+  "source": "Balancos trimestrais das empresas",
+  "tables": [
+    {
+      "metric_group": "lancamentos",
+      "period_label": "3T25",
+      "rows": [
+        {
+          "company": "MRV",
+          "x_2t25": -32,
+          "x_3t24": -19,
+          "nove_meses_24_23": 96,
+          "nove_meses_25_24": 20
+        },
+        {
+          "company": "Cury",
+          "x_2t25": 3,
+          "x_3t24": 32,
+          "nove_meses_24_23": 33,
+          "nove_meses_25_24": 35
+        },
+        {
+          "company": "Tenda",
+          "x_2t25": 31,
+          "x_3t24": -33,
+          "nove_meses_24_23": 52,
+          "nove_meses_25_24": -11
+        },
+        {
+          "company": "Plano & Plano",
+          "x_2t25": 207,
+          "x_3t24": 101,
+          "nove_meses_24_23": 60,
+          "nove_meses_25_24": 46
+        },
+        {
+          "company": "Direcional",
+          "x_2t25": 27,
+          "x_3t24": 8,
+          "nove_meses_24_23": 2,
+          "nove_meses_25_24": 21
+        },
+        {
+          "company": "Pacaembu",
+          "x_2t25": 6,
+          "x_3t24": 84,
+          "nove_meses_24_23": 25,
+          "nove_meses_25_24": 48
+        }
+      ],
+      "totals": {
+        "x_2t25": 14,
+        "x_3t24": 9,
+        "nove_meses_24_23": 46,
+        "nove_meses_25_24": 23
+      }
+    },
+    {
+      "metric_group": "vendas",
+      "period_label": "3T25",
+      "rows": [
+        {
+          "company": "MRV",
+          "x_2t25": -12,
+          "x_3t24": -10,
+          "nove_meses_24_23": 9,
+          "nove_meses_25_24": -5
+        },
+        {
+          "company": "Cury",
+          "x_2t25": -15,
+          "x_3t24": 32,
+          "nove_meses_24_23": 30,
+          "nove_meses_25_24": 27
+        },
+        {
+          "company": "Tenda",
+          "x_2t25": 4,
+          "x_3t24": -19,
+          "nove_meses_24_23": 38,
+          "nove_meses_25_24": -1
+        },
+        {
+          "company": "Plano & Plano",
+          "x_2t25": 13,
+          "x_3t24": -36,
+          "nove_meses_24_23": 62,
+          "nove_meses_25_24": -13
+        },
+        {
+          "company": "Direcional",
+          "x_2t25": -6,
+          "x_3t24": -23,
+          "nove_meses_24_23": 54,
+          "nove_meses_25_24": -10
+        },
+        {
+          "company": "Pacaembu",
+          "x_2t25": 43,
+          "x_3t24": 97,
+          "nove_meses_24_23": 74,
+          "nove_meses_25_24": 47
+        }
+      ],
+      "totals": {
+        "x_2t25": -1,
+        "x_3t24": -5,
+        "nove_meses_24_23": 34,
+        "nove_meses_25_24": 4
+      }
+    }
+  ],
+  "insight": "Grandes empresas continuam registrando forte expansao nos lancamentos. Vendas, entretanto, com desempenho menos favoravel em 2025, embora ainda positivo."
+}

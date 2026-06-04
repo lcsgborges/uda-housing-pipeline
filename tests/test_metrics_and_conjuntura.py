@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from app.modules.companies.models import Company
@@ -8,8 +9,8 @@ from app.modules.metrics.models import Metric
 def test_consulta_metricas(client, db_session):
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
     db_session.add(company)
-    db_session.commit()
-    db_session.refresh(company)
+    asyncio.run(db_session.commit())
+    asyncio.run(db_session.refresh(company))
 
     document = Document(
         company_id=company.id,
@@ -25,8 +26,8 @@ def test_consulta_metricas(client, db_session):
         processed_at=datetime.utcnow(),
     )
     db_session.add(document)
-    db_session.commit()
-    db_session.refresh(document)
+    asyncio.run(db_session.commit())
+    asyncio.run(db_session.refresh(document))
 
     metric = Metric(
         company_id=company.id,
@@ -43,13 +44,32 @@ def test_consulta_metricas(client, db_session):
         confidence=0.92,
     )
     db_session.add(metric)
-    db_session.commit()
+    asyncio.run(db_session.commit())
 
     resp_metrics = client.get("/api/metrics")
     assert resp_metrics.status_code == 200
     assert len(resp_metrics.json()) == 1
 
-    resp_conjuntura = client.get("/api/conjuntura", params={"empresa": "MRV", "ano": 2025, "trimestre": 3})
+    resp_filtered = client.get(
+        "/api/metrics",
+        params={
+            "empresa": "MRV",
+            "ano": 2025,
+            "trimestre": 3,
+            "metrica": "vendas_liquidas",
+        },
+    )
+    assert resp_filtered.status_code == 200
+    assert len(resp_filtered.json()) == 1
+
+    resp_empty = client.get("/api/metrics", params={"empresa": "MRV", "ano": 2024})
+    assert resp_empty.status_code == 200
+    assert resp_empty.json() == []
+
+    resp_conjuntura = client.get(
+        "/api/conjuntura",
+        params={"empresa": "MRV", "ano": 2025, "trimestre": 3},
+    )
     assert resp_conjuntura.status_code == 200
     payload = resp_conjuntura.json()
     assert payload["empresa"] == "MRV"

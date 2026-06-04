@@ -16,7 +16,7 @@ Transformar documentos não estruturados (PDFs de resultados/prévias operaciona
 - `app/modules/metrics`: métricas extraídas e endpoint de conjuntura.
 - `app/modules/lineage`: rastreabilidade origem -> métrica.
 - `alembic`: migrations de schema.
-- `app/tests`: testes unitários e de API.
+- `tests`: testes unitários e de API.
 
 ## Tecnologias
 
@@ -24,20 +24,19 @@ Transformar documentos não estruturados (PDFs de resultados/prévias operaciona
 - FastAPI
 - SQLAlchemy 2.0
 - Alembic
-- PostgreSQL (produção) / SQLite (local)
+- SQLite (local/compose) ou PostgreSQL via `DATABASE_URL`
 - Pydantic v2 + pydantic-settings
 - PyMuPDF
 - httpx + BeautifulSoup4
-- OpenAI SDK (provedor configurável)
+- OpenAI SDK via Responses API e contrato Pydantic
+- RustFS como object storage S3-compatible
 - pytest
 - Ruff
 
 ## Instalação
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+uv sync --extra dev
 ```
 
 ## Configuração `.env`
@@ -48,22 +47,56 @@ cp .env.example .env
 
 Variáveis principais:
 
-- `DATABASE_URL=sqlite:///./pipeline_uda.db` (local)
-- `LLM_PROVIDER=fake` para modo de desenvolvimento sem chave
-- `LLM_PROVIDER=openai` + `OPENAI_API_KEY` para extração real
+- `DATABASE_URL=sqlite+aiosqlite:///./pipeline_uda.db` (local assíncrono)
+- `LLM_PROVIDER=openai` + `OPENAI_API_KEY` para extração real via API da OpenAI
+- `LLM_PROVIDER=fake` para modo de desenvolvimento sem chave/custo de API
 - `OPENAI_MODEL=gpt-4.1-mini`
 - `DOCUMENTS_DIR=./data/documents`
+- `STORAGE_BACKEND=local|rustfs`
+- `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_BUCKET`
+- `EXTRACTION_BATCH_SIZE=5`
+- `ENABLE_INGESTION_SCHEDULER=true` para observação contínua
+- `INGESTION_POLL_INTERVAL_MINUTES=1440` (1x/dia)
+
+## Executar com Docker Compose
+
+Configure a chave da OpenAI no ambiente ou no arquivo `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Edite `.env` e preencha:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+Suba API + RustFS:
+
+```bash
+docker compose --env-file .env up --build
+```
+
+Serviços:
+
+- API: `http://localhost:8000`
+- Swagger/OpenAPI: `http://localhost:8000/docs`
+- RustFS S3 API: `http://localhost:9000`
+- RustFS Console: `http://localhost:9001`
+
+O compose usa `STORAGE_BACKEND=rustfs` e grava objetos no bucket `uda-documents`.
 
 ## Executar servidor
 
 ```bash
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 ## Rodar migrations
 
 ```bash
-alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ## Rodar ingestão
@@ -71,7 +104,13 @@ alembic upgrade head
 - Via CLI:
 
 ```bash
-python -m app.modules.ingestion.scheduler
+uv run python -m app.modules.ingestion.scheduler
+```
+
+Com scheduler contínuo no servidor:
+
+```bash
+ENABLE_INGESTION_SCHEDULER=true uv run uvicorn app.main:app --reload
 ```
 
 - Via API:
@@ -79,12 +118,13 @@ python -m app.modules.ingestion.scheduler
 ```http
 POST /api/ingestion/run
 POST /api/ingestion/run/{company_id}
+POST /api/ingestion/extract-batch?batch_size=10
 ```
 
 ## Rodar testes
 
 ```bash
-pytest -q
+uv run pytest -q
 ```
 
 ## Endpoints principais
@@ -97,6 +137,7 @@ pytest -q
 - `DELETE /api/companies/{company_id}`
 - `POST /api/ingestion/run`
 - `POST /api/ingestion/run/{company_id}`
+- `POST /api/ingestion/extract-batch`
 - `GET /api/documents`
 - `GET /api/documents/{document_id}`
 - `GET /api/metrics`
@@ -109,21 +150,29 @@ pytest -q
 curl "http://localhost:8000/api/conjuntura?empresa=MRV&ano=2025&trimestre=3"
 ```
 
+## Exemplo de dado
+
+- Fixture estruturado do boletim de conjuntura 3T2025: `docs/exemplos/conjuntura_3t2025_exemplo.json`.
+- Guia de mapeamento desse boletim para `metrics`: `docs/exemplos/README.md`.
+
 ## Idempotência
 
 - Cada PDF baixado recebe `SHA-256`.
 - Antes da extração, o sistema consulta o catálogo (`documents.file_hash`).
 - Hash já existente: cria registro com status `ignored_duplicate` e não chama LLM.
 - Hash novo: segue para parsing/chunking/extração.
+- Storage dos arquivos pode ser local (`file://`) ou RustFS via S3 (`s3://bucket/key`).
 
 ## Contrato semântico
 
-O contrato é definido por `ExtractedMetric` e `ExtractedMetricBatch` (Pydantic), exigindo:
+O contrato é definido por `ExtractedMetric` e `ExtractedMetricBatch` (Pydantic), enviado para a OpenAI via Structured Outputs, exigindo:
 
-- JSON válido;
+- resposta aderente ao schema Pydantic;
 - `confidence` entre 0 e 1;
 - valores ausentes como `null`;
 - vínculo com `source_page` e `source_excerpt` quando possível.
+
+Detalhamento da etapa B/C do desafio: `docs/processamento_uda.md`.
 
 ## Linhagem dos dados
 
@@ -135,16 +184,22 @@ Tabela `data_lineage` armazena, para cada métrica:
 - modelo de extração e versão do prompt;
 - timestamp de extração.
 
+## Orquestração com Airflow
+
+- DAG pronta em `dags/uda_pipeline_dag.py`.
+- Fluxo: `ingest_new_documents` -> `extract_metrics_batch`.
+- A ingestão baixa e salva arquivos no storage (RustFS/local).
+- A extração roda em lote para reduzir overhead e custo por documento.
+
 ## Limitações conhecidas
 
 - Scraper atual usa heurísticas gerais para links de PDF e pode precisar ajuste por site muito dinâmico.
 - Extração OpenAI depende de chave/API ativa.
-- Chunking é semântico simples (palavras-chave + blocos por tamanho), sem embeddings.
+- Chunking é semântico simples (palavras-chave + blocos por tamanho), sem embeddings vetoriais.
 - Parser de tabelas avançadas ainda não está habilitado.
 
 ## Próximos passos
 
-- Incluir scheduler com APScheduler para execução diária automática.
 - Adicionar suporte a múltiplos provedores LLM (ex.: Anthropic, DeepSeek).
 - Melhorar detecção de período com NLP contextual.
 - Implementar retries/circuit breaker para ingestão robusta.

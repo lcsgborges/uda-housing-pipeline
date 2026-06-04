@@ -38,3 +38,32 @@ def test_schema_rejeita_confianca_invalida():
     }
     with pytest.raises(ValidationError):
         ExtractedMetricBatch.model_validate(payload)
+
+
+def test_schema_rejeita_nome_de_metrica_fora_do_padrao():
+    payload = {
+        "metrics": [
+            {
+                "company": "MRV",
+                "metric_name": "Vendas Líquidas",
+                "confidence": 0.8,
+            }
+        ]
+    }
+    with pytest.raises(ValidationError):
+        ExtractedMetricBatch.model_validate(payload)
+
+
+def test_schema_rejeita_pagina_invalida():
+    payload = {
+        "metrics": [
+            {
+                "company": "MRV",
+                "metric_name": "vendas_liquidas",
+                "source_page": 0,
+                "confidence": 0.8,
+            }
+        ]
+    }
+    with pytest.raises(ValidationError):
+        ExtractedMetricBatch.model_validate(payload)

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from app.modules.companies.models import Company
@@ -8,8 +9,8 @@ from app.modules.documents.repository import DocumentRepository
 def test_deteccao_duplicidade_por_hash(db_session):
     company = Company(name="Tenda", ticker="TEND3", ri_url="https://ri.tenda.com", is_active=True)
     db_session.add(company)
-    db_session.commit()
-    db_session.refresh(company)
+    asyncio.run(db_session.commit())
+    asyncio.run(db_session.refresh(company))
 
     repository = DocumentRepository(db_session)
     doc = Document(
@@ -24,8 +25,8 @@ def test_deteccao_duplicidade_por_hash(db_session):
         status=DocumentStatus.processed,
         collected_at=datetime.utcnow(),
     )
-    repository.create(doc)
+    asyncio.run(repository.create(doc))
 
-    existing = repository.get_by_hash("hash_unico")
+    existing = asyncio.run(repository.get_by_hash("hash_unico"))
     assert existing is not None
     assert existing.file_hash == "hash_unico"
