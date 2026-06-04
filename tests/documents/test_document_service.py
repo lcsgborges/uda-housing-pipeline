@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from types import SimpleNamespace
 
 from app.modules.documents.service import DocumentService
 
@@ -25,3 +26,12 @@ async def test_document_service_get_or_404_missing():
         await service.get_or_404(999)
 
     assert excinfo.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_document_service_get_or_404_found():
+    document = SimpleNamespace(id=1)
+    service = DocumentService(StubDocumentRepository(document=document))
+
+    assert await service.get_or_404(1) is document
+
