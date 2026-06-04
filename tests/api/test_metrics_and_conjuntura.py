@@ -164,3 +164,10 @@ async def test_consulta_empresa_ignora_acentos(client, db_session):
     assert len(resp_sem_acento.json()) == 1
     assert resp_com_acento.status_code == 200
     assert resp_com_acento.json()["empresa"] == "São José"
+
+
+def test_consulta_empresa_inexistente_retorna_404(client):
+    response = client.get("/api/metrics", params={"empresa": "Nao Existe"})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Empresa não encontrada."

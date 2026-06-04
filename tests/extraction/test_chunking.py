@@ -1,4 +1,4 @@
-from app.modules.extraction.chunking import SemanticChunker
+from app.modules.extraction.chunking import SemanticChunker, _numeric_density
 
 
 def test_chunking_prioriza_palavras_chave():
@@ -50,3 +50,38 @@ def test_chunking_respeita_orcamento_de_contexto():
 
     assert selected
     assert sum(len(chunk.text) for chunk in selected) <= 150
+
+
+def test_select_relevant_chunks_lida_com_lista_vazia_e_preserva_primeiro_relevante():
+    chunker = SemanticChunker()
+    chunks = chunker.build_chunks(
+        [
+            "DESEMPENHO OPERACIONAL\nVendas liquidas R$ 100 milhoes",
+            "Resultado financeiro com receita liquida, lucro liquido, ebitda e margem bruta.",
+        ]
+    )
+
+    selected = chunker.select_relevant_chunks(chunks, top_k=1)
+
+    assert chunker.select_relevant_chunks([]) == []
+    assert chunks[0] in selected
+
+
+def test_split_semantic_blocks_cobre_paginas_vazias_e_titulos_sequenciais():
+    chunker = SemanticChunker()
+
+    assert chunker._split_page_into_semantic_blocks("") == []
+    assert chunker._split_page_into_semantic_blocks(
+        "Texto introdutório\nDESEMPENHO OPERACIONAL\nVendas liquidas"
+    ) == [(None, "Texto introdutório"), ("DESEMPENHO OPERACIONAL", "Vendas liquidas")]
+    assert chunker._split_page_into_semantic_blocks(
+        "DESEMPENHO OPERACIONAL\nRESULTADO FINANCEIRO"
+    ) == [(None, "DESEMPENHO OPERACIONAL\nRESULTADO FINANCEIRO")]
+
+
+def test_heading_rejeita_linhas_longas_numericas_e_numeric_density_vazia():
+    chunker = SemanticChunker()
+
+    assert chunker._looks_like_heading("DESEMPENHO OPERACIONAL " * 12) is False
+    assert chunker._looks_like_heading("RESULTADO 1234567890") is False
+    assert _numeric_density("") == 0.0

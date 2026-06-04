@@ -4,6 +4,7 @@ from botocore.exceptions import ClientError
 from app.modules.storage import service as storage_service
 from app.modules.storage.service import (
     LocalObjectStorage,
+    ObjectStorage,
     RustFSS3ObjectStorage,
     _build_endpoint_url,
     _guess_content_type,
@@ -149,3 +150,37 @@ def test_build_object_storage_escolhe_backend(monkeypatch, tmp_path):
     )
 
     assert isinstance(build_object_storage(), LocalObjectStorage)
+
+
+def test_object_storage_base_rejeita_uso_direto():
+    storage = ObjectStorage()
+
+    with pytest.raises(NotImplementedError):
+        storage.store(key="doc.pdf", content=b"pdf")
+
+    with pytest.raises(NotImplementedError):
+        storage.read("file:///tmp/doc.pdf")
+
+
+def test_build_object_storage_escolhe_rustfs(monkeypatch):
+    sentinel = object()
+
+    monkeypatch.setattr(
+        storage_service,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "storage_backend": "rustfs",
+                "rustfs_endpoint": "rustfs:9000",
+                "rustfs_access_key": "key",
+                "rustfs_secret_key": "secret",
+                "rustfs_bucket": "uda",
+                "rustfs_secure": False,
+            },
+        )(),
+    )
+    monkeypatch.setattr(storage_service, "RustFSS3ObjectStorage", lambda **kwargs: sentinel)
+
+    assert build_object_storage() is sentinel

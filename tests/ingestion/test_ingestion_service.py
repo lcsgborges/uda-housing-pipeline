@@ -40,6 +40,7 @@ class _FakeExtraction:
     [
         ("https://ri.com/previa-3t25.pdf", "", (2025, 3)),
         ("https://ri.com/doc.pdf", "Resultado 4T2026", (2026, 4)),
+        ("https://ri.com/doc.pdf", "Relatório anual 25", (2025, None)),
         ("https://ri.com/doc.pdf", "Sem período", (None, None)),
     ],
 )
@@ -93,6 +94,37 @@ async def test_ingestion_run_processa_links_de_empresas_ativas(monkeypatch, db_s
         "discovered": 1,
         "processed": 1,
         "ignored_duplicates": 0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_ingestion_run_filtra_empresa_e_contabiliza_ignorados(monkeypatch, db_session):
+    selected = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
+    other = Company(name="Tenda", ticker="TEND3", ri_url="https://ri.tenda.com", is_active=True)
+    db_session.add_all([selected, other])
+    await db_session.commit()
+    await db_session.refresh(selected)
+
+    service = IngestionService(db_session)
+    service.scraper = type(
+        "Scraper",
+        (),
+        {"find_pdf_links": lambda self, url: [{"url": f"{url}/doc.pdf", "title": "Duplicado"}]},
+    )()
+
+    async def fake_ingest(company, url, title, extract_after_ingestion=True):
+        assert company.id == selected.id
+        return "ignored"
+
+    monkeypatch.setattr(service, "_ingest_link", fake_ingest)
+
+    result = await service.run(company_id=selected.id)
+
+    assert result == {
+        "companies": 1,
+        "discovered": 1,
+        "processed": 0,
+        "ignored_duplicates": 1,
     }
 
 

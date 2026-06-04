@@ -1,0 +1,48 @@
+class _FakeExtractionService:
+    async def process_pending_documents_batch(self, batch_size):
+        return {"selected": batch_size, "processed": batch_size, "failed": 0}
+
+
+class _FakeIngestionService:
+    def __init__(self, session=None):
+        self.session = session
+        self.extraction_service = _FakeExtractionService()
+
+    async def run(self, company_id=None):
+        return {
+            "companies": 1 if company_id else 2,
+            "discovered": 3,
+            "processed": 2,
+            "ignored_duplicates": 1,
+        }
+
+
+def test_ingestion_router_executa_fluxos(client):
+    from app.main import app
+    from app.modules.ingestion.router import get_service
+
+    app.dependency_overrides[get_service] = lambda: _FakeIngestionService()
+    try:
+        run_all = client.post("/api/ingestion/run")
+        run_company = client.post("/api/ingestion/run/7")
+        extract_batch = client.post("/api/ingestion/extract-batch", params={"batch_size": 4})
+    finally:
+        app.dependency_overrides.pop(get_service, None)
+
+    assert run_all.status_code == 200
+    assert run_all.json()["companies"] == 2
+    assert run_company.status_code == 200
+    assert run_company.json()["companies"] == 1
+    assert extract_batch.status_code == 200
+    assert extract_batch.json() == {"selected": 4, "processed": 4, "failed": 0}
+
+
+def test_get_service_constroi_ingestion_service(monkeypatch):
+    from app.modules.ingestion import router as ingestion_router
+
+    monkeypatch.setattr(ingestion_router, "IngestionService", _FakeIngestionService)
+
+    service = ingestion_router.get_service(session="session")
+
+    assert isinstance(service, _FakeIngestionService)
+    assert service.session == "session"

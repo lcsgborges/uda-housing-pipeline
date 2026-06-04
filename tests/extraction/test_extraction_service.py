@@ -6,7 +6,12 @@ from sqlalchemy import select
 from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
-from app.modules.extraction.service import ExtractionService, _format_chunk_for_llm, _is_storage_uri
+from app.modules.extraction.service import (
+    ExtractionService,
+    _format_chunk_for_llm,
+    _is_storage_uri,
+    _normalize_unit_and_currency,
+)
 from app.modules.lineage.models import DataLineage
 from app.modules.metrics.models import Metric
 from app.modules.metrics.schemas import ExtractedBatchResponse
@@ -70,6 +75,11 @@ class _BatchLLM:
                 ]
             }
         )
+
+
+class _EmptyBatchLLM:
+    def extract_metrics_batch(self, payloads):
+        return ExtractedBatchResponse.model_validate({"documents": []})
 
 
 class _AliasMetricLLM:
@@ -162,6 +172,17 @@ async def test_process_document_normaliza_alias_e_enriquece_metadados(db_session
 
 
 @pytest.mark.asyncio
+async def test_process_document_rejeita_lote_vazio_da_llm(db_session):
+    company, document = await _create_company_and_document(db_session)
+    service = ExtractionService(db_session)
+    service.parser = _FakeParser()
+    service.llm = _EmptyBatchLLM()
+
+    with pytest.raises(ValueError, match="lote vazio"):
+        await service.process_document(document, company_name=company.name)
+
+
+@pytest.mark.asyncio
 async def test_process_pending_documents_batch_sem_documentos(db_session):
     service = ExtractionService(db_session)
 
@@ -193,7 +214,7 @@ async def test_process_pending_documents_batch_marca_nao_retornado_como_failed(d
 
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
-    service.llm = _BatchLLM(returned_refs=[str(first.id)])
+    service.llm = _BatchLLM(returned_refs=["unknown-document", str(first.id)])
 
     result = await service.process_pending_documents_batch(batch_size=10)
     await db_session.refresh(first)
@@ -271,3 +292,21 @@ def test_format_chunk_e_storage_uri_helpers():
     assert _is_storage_uri("/tmp/doc.pdf") is False
     assert "Título/seção: DESEMPENHO OPERACIONAL" in formatted
     assert "Tags semânticas: operacional, tabela" in formatted
+
+
+def test_normalize_unit_and_currency_aplica_defaults_quando_sem_moeda():
+    unit, currency = _normalize_unit_and_currency(
+        unit=None,
+        currency=None,
+        default_unit="R$",
+        default_currency="BRL",
+    )
+    percent_unit, percent_currency = _normalize_unit_and_currency(
+        unit="%",
+        currency=None,
+        default_unit="%",
+        default_currency=None,
+    )
+
+    assert (unit, currency) == ("R$", "BRL")
+    assert (percent_unit, percent_currency) == ("%", None)

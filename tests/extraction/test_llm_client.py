@@ -4,6 +4,7 @@ import pytest
 
 from app.modules.extraction import llm_client
 from app.modules.extraction.llm_client import (
+    BaseLLMClient,
     FakeLLMClient,
     OpenAILLMClient,
     _build_batch_prompt,
@@ -54,6 +55,21 @@ def test_build_llm_client_default_fake(monkeypatch):
 def test_openai_llm_exige_api_key():
     with pytest.raises(ValueError):
         OpenAILLMClient(api_key="", model="gpt")
+
+
+def test_base_llm_client_metodos_abstratos_rejeitam_uso_direto():
+    with pytest.raises(NotImplementedError):
+        BaseLLMClient.extract_metrics(
+            object(),
+            company="MRV",
+            original_url="https://example.com/doc.pdf",
+            context="texto",
+            year=2025,
+            quarter=3,
+        )
+
+    with pytest.raises(NotImplementedError):
+        BaseLLMClient.extract_metrics_batch(object(), [])
 
 
 class _ParsedResponse:

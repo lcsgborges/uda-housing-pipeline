@@ -50,7 +50,7 @@ jobs:
         run: uv run ruff check app tests
 
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run pytest -q --cov=app --cov-report=term-missing
 
   docs:
     name: Build MkDocs
