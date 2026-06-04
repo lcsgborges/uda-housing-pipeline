@@ -1,0 +1,63 @@
+services:
+  api:
+    build: .
+    container_name: uda-api
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: sqlite+aiosqlite:////app/data/pipeline_uda.db
+      DOCUMENTS_DIR: /app/data/documents
+      STORAGE_BACKEND: rustfs
+      RUSTFS_ENDPOINT: rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_BUCKET: ${RUSTFS_BUCKET:-uda-documents}
+      RUSTFS_SECURE: "false"
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+      EXTRACTION_PROMPT_VERSION: ${EXTRACTION_PROMPT_VERSION:-v2}
+      EXTRACTION_BATCH_SIZE: ${EXTRACTION_BATCH_SIZE:-5}
+      ENABLE_INGESTION_SCHEDULER: ${ENABLE_INGESTION_SCHEDULER:-false}
+      INGESTION_POLL_INTERVAL_MINUTES: ${INGESTION_POLL_INTERVAL_MINUTES:-1440}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-20}
+      USER_AGENT: ${USER_AGENT:-Pipeline-UDA/1.0}
+      EXTRACTION_FULL_SCAN_MAX_CHARS: ${EXTRACTION_FULL_SCAN_MAX_CHARS:-14000}
+      EXTRACTION_CONTEXT_MAX_CHARS: ${EXTRACTION_CONTEXT_MAX_CHARS:-18000}
+    volumes:
+      - api_data:/app/data
+    depends_on:
+      rustfs:
+        condition: service_started
+
+  rustfs_perms:
+    image: alpine:3.20
+    container_name: uda-rustfs-perms
+    user: root
+    volumes:
+      - rustfs_data:/data
+    command: chown -R 10001:10001 /data
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: uda-rustfs
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ADDRESS: :9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - rustfs_data:/data
+    command: ["/data"]
+    depends_on:
+      rustfs_perms:
+        condition: service_completed_successfully
+
+volumes:
+  api_data:
+  rustfs_data:

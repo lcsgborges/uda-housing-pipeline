@@ -9,9 +9,14 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
 .coverage
+.coverage.*
 coverage.xml
+coverage.json
 htmlcov/
+.tox/
+.nox/
 
 # Virtual environments
 .venv/
@@ -22,6 +27,7 @@ env/
 build/
 dist/
 *.egg-info/
+*.egg
 
 # IDE/editor
 .idea/
@@ -31,11 +37,24 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Local databases and artifacts
+# Local databases, storage and artifacts
 *.db
 *.sqlite
 *.sqlite3
-data/documents/
+*.db-journal
+*.db-shm
+*.db-wal
+data/*
+!data/.gitkeep
+
+# Test reports
+junit.xml
+test-results/
 
 # Logs
 *.log
+logs/
+
+# Docker/local overrides
+compose.override.yml
+docker-compose.override.yml
