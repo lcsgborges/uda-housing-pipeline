@@ -9,28 +9,28 @@ class CompanyService:
     def __init__(self, repository: CompanyRepository):
         self.repository = repository
 
-    def create(self, payload: CompanyCreate):
+    async def create(self, payload: CompanyCreate):
         try:
-            return self.repository.create(payload)
+            return await self.repository.create(payload)
         except IntegrityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Empresa com mesmo nome ou ticker já cadastrada.",
             ) from exc
 
-    def list_all(self):
-        return self.repository.list_all()
+    async def list_all(self):
+        return await self.repository.list_all()
 
-    def get_or_404(self, company_id: int):
-        company = self.repository.get_by_id(company_id)
+    async def get_or_404(self, company_id: int):
+        company = await self.repository.get_by_id(company_id)
         if not company:
             raise HTTPException(status_code=404, detail="Empresa não encontrada.")
         return company
 
-    def update(self, company_id: int, payload: CompanyUpdate):
-        company = self.get_or_404(company_id)
-        return self.repository.update(company, payload)
+    async def update(self, company_id: int, payload: CompanyUpdate):
+        company = await self.get_or_404(company_id)
+        return await self.repository.update(company, payload)
 
-    def delete(self, company_id: int):
-        company = self.get_or_404(company_id)
-        self.repository.delete(company)
+    async def delete(self, company_id: int):
+        company = await self.get_or_404(company_id)
+        await self.repository.delete(company)

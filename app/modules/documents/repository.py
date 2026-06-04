@@ -1,32 +1,34 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.documents.models import Document
 
 
 class DocumentRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def list_all(self) -> list[Document]:
+    async def list_all(self) -> list[Document]:
         stmt = select(Document).order_by(Document.collected_at.desc())
-        return list(self.session.scalars(stmt).all())
+        result = await self.session.scalars(stmt)
+        return list(result.all())
 
-    def get_by_id(self, document_id: int) -> Document | None:
-        return self.session.get(Document, document_id)
+    async def get_by_id(self, document_id: int) -> Document | None:
+        return await self.session.get(Document, document_id)
 
-    def get_by_hash(self, file_hash: str) -> Document | None:
+    async def get_by_hash(self, file_hash: str) -> Document | None:
         stmt = select(Document).where(Document.file_hash == file_hash)
-        return self.session.scalars(stmt).first()
+        result = await self.session.scalars(stmt)
+        return result.first()
 
-    def create(self, document: Document) -> Document:
+    async def create(self, document: Document) -> Document:
         self.session.add(document)
-        self.session.commit()
-        self.session.refresh(document)
+        await self.session.commit()
+        await self.session.refresh(document)
         return document
 
-    def update(self, document: Document) -> Document:
+    async def update(self, document: Document) -> Document:
         self.session.add(document)
-        self.session.commit()
-        self.session.refresh(document)
+        await self.session.commit()
+        await self.session.refresh(document)
         return document

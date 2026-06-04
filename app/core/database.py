@@ -1,12 +1,18 @@
 from datetime import datetime
 
-from sqlalchemy import create_engine, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy import func
+from sqlalchemy.ext.asyncio import (
+    AsyncAttrs,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.core.config import get_settings
 
 
-class Base(DeclarativeBase):
+class Base(AsyncAttrs, DeclarativeBase):
     pass
 
 
@@ -18,13 +24,16 @@ class TimestampMixin:
 
 
 settings = get_settings()
-engine = create_engine(settings.database_url, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+engine = create_async_engine(settings.database_url, future=True)
+SessionLocal = async_sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 
-def get_db_session():
-    session = SessionLocal()
-    try:
+async def get_db_session():
+    async with SessionLocal() as session:
         yield session
-    finally:
-        session.close()

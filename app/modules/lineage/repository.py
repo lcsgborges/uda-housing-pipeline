@@ -1,13 +1,13 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.lineage.models import DataLineage
 
 
 class DataLineageRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def create_many(self, rows: list[DataLineage]) -> list[DataLineage]:
+    async def create_many(self, rows: list[DataLineage]) -> list[DataLineage]:
         self.session.add_all(rows)
-        self.session.commit()
+        await self.session.commit()
         return rows

@@ -1,24 +1,31 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class ExtractedMetric(BaseModel):
-    company: str
-    period_year: int | None = None
+    company: str = Field(min_length=1, max_length=120)
+    period_year: int | None = Field(default=None, ge=2000, le=2100)
     period_quarter: int | None = Field(default=None, ge=1, le=4)
-    metric_name: str
-    metric_category: str | None = None
+    metric_name: str = Field(min_length=2, max_length=100, pattern=r"^[a-z0-9_]+$")
+    metric_category: str | None = Field(default=None, max_length=100)
     value: float | None = None
-    unit: str | None = None
-    currency: str | None = None
-    source_page: int | None = None
-    source_excerpt: str | None = None
+    unit: str | None = Field(default=None, max_length=30)
+    currency: str | None = Field(default=None, max_length=10)
+    source_page: int | None = Field(default=None, ge=1)
+    source_excerpt: str | None = Field(default=None, max_length=1200)
     confidence: float = Field(ge=0.0, le=1.0)
 
 
 class ExtractedMetricBatch(BaseModel):
     metrics: list[ExtractedMetric]
+
+
+class ExtractedDocumentMetrics(BaseModel):
+    document_ref: str
+    metrics: list[ExtractedMetric]
+
+
+class ExtractedBatchResponse(BaseModel):
+    documents: list[ExtractedDocumentMetrics]
 
 
 class MetricRead(BaseModel):

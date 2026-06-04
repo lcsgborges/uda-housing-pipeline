@@ -1,36 +1,38 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.companies.models import Company
 from app.modules.companies.schemas import CompanyCreate, CompanyUpdate
 
 
 class CompanyRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: AsyncSession):
         self.session = session
 
-    def create(self, payload: CompanyCreate) -> Company:
-        company = Company(**payload.model_dump())
+    async def create(self, payload: CompanyCreate) -> Company:
+        data = payload.model_dump(mode="json")
+        company = Company(**data)
         self.session.add(company)
-        self.session.commit()
-        self.session.refresh(company)
+        await self.session.commit()
+        await self.session.refresh(company)
         return company
 
-    def list_all(self) -> list[Company]:
+    async def list_all(self) -> list[Company]:
         stmt = select(Company).order_by(Company.name)
-        return list(self.session.scalars(stmt).all())
+        result = await self.session.scalars(stmt)
+        return list(result.all())
 
-    def get_by_id(self, company_id: int) -> Company | None:
-        return self.session.get(Company, company_id)
+    async def get_by_id(self, company_id: int) -> Company | None:
+        return await self.session.get(Company, company_id)
 
-    def update(self, company: Company, payload: CompanyUpdate) -> Company:
-        for field, value in payload.model_dump(exclude_unset=True).items():
+    async def update(self, company: Company, payload: CompanyUpdate) -> Company:
+        for field, value in payload.model_dump(exclude_unset=True, mode="json").items():
             setattr(company, field, value)
         self.session.add(company)
-        self.session.commit()
-        self.session.refresh(company)
+        await self.session.commit()
+        await self.session.refresh(company)
         return company
 
-    def delete(self, company: Company) -> None:
-        self.session.delete(company)
-        self.session.commit()
+    async def delete(self, company: Company) -> None:
+        await self.session.delete(company)
+        await self.session.commit()
