@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -10,10 +10,14 @@ from app.core.database import Base
 class DocumentStatus(StrEnum):
     discovered = "discovered"
     downloaded = "downloaded"
+    classifying = "classifying"
+    classified_useful = "classified_useful"
     processing = "processing"
     processed = "processed"
     failed = "failed"
+    ignored_not_relevant = "ignored_not_relevant"
     ignored_duplicate = "ignored_duplicate"
+    needs_ocr = "needs_ocr"
 
 
 class Document(Base):
@@ -31,6 +35,13 @@ class Document(Base):
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     quarter: Mapped[int | None] = mapped_column(Integer, nullable=True)
     document_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    classification_is_useful: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    classification_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    classification_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    classification_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    detected_domains: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    extraction_strategy: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    classified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[DocumentStatus] = mapped_column(
         Enum(DocumentStatus), default=DocumentStatus.discovered, nullable=False
     )

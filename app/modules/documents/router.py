@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
@@ -42,3 +43,16 @@ async def list_documents(service: ServiceDep):
 async def get_document(document_id: DocumentId, service: ServiceDep):
     """Endpoint para consultar um documento por ID."""
     return await service.get_or_404(document_id)
+
+
+@router.get(
+    "/{document_id}/file",
+    summary="Abrir arquivo do documento",
+    description="Retorna o PDF armazenado para abertura local via API.",
+    response_class=Response,
+)
+async def get_document_file(document_id: DocumentId, service: ServiceDep):
+    """Endpoint para abrir ou baixar o arquivo associado ao documento."""
+    document, content = await service.read_file_or_404(document_id)
+    headers = {"Content-Disposition": f'inline; filename="document-{document.id}.pdf"'}
+    return Response(content=content, media_type="application/pdf", headers=headers)

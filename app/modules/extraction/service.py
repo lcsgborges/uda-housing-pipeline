@@ -58,7 +58,13 @@ class ExtractionService:
                     retry_error,
                 )
         if not metrics:
-            raise ValueError("Nenhuma métrica extraída do documento.")
+            failure_message = "Nenhuma métrica extraída do documento."
+            if retry_error:
+                failure_message = f"{failure_message} Retry individual falhou: {retry_error}"
+            _mark_document_failed(document, failure_message)
+            self.session.add(document)
+            await self.session.commit()
+            raise ValueError(failure_message)
         await self._persist_extraction(
             document=document,
             metrics=metrics,
@@ -70,7 +76,7 @@ class ExtractionService:
         stmt = (
             select(Document)
             .options(joinedload(Document.company))
-            .where(Document.status == DocumentStatus.downloaded)
+            .where(Document.status == DocumentStatus.classified_useful)
             .order_by(Document.collected_at.asc())
             .limit(size)
         )

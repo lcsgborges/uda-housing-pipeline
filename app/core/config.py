@@ -23,10 +23,13 @@ class Settings(BaseSettings):
     llm_provider: str = "ollama"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
+    openai_classification_model: str = "gpt-4.1-mini"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
+    ollama_classification_model: str = "llama3.1"
     extraction_prompt_version: str = "v1"
     extraction_batch_size: int = Field(default=5, ge=1, le=50)
+    classification_batch_size: int = Field(default=5, ge=1, le=50)
 
     request_timeout_seconds: int = Field(default=20, ge=3)
     user_agent: str = "Pipeline-UDA/1.0"
@@ -34,6 +37,8 @@ class Settings(BaseSettings):
     ingestion_schedule_hour: int = Field(default=2, ge=0, le=23)
     ingestion_schedule_minute: int = Field(default=0, ge=0, le=59)
     scheduler_timezone: str = "America/Sao_Paulo"
+    classification_context_max_chars: int = Field(default=12000, ge=2000)
+    classification_sample_pages: int = Field(default=3, ge=1, le=10)
     extraction_full_scan_max_chars: int = Field(default=14000, ge=2000)
     extraction_context_max_chars: int = Field(default=18000, ge=4000)
 

@@ -50,9 +50,28 @@ async def run_ingestion_company(
 
 
 @router.post(
+    "/classify-batch",
+    summary="Executar classificação em lote",
+    description="Classifica documentos baixados por utilidade antes da extração.",
+)
+async def run_classification_batch(
+    service: ServiceDep,
+    batch_size: int = Query(
+        default=5,
+        ge=1,
+        description="Quantidade máxima de documentos no lote.",
+    ),
+):
+    """Endpoint para classificar documentos pendentes por utilidade."""
+    return await service.classification_service.process_pending_documents_batch(
+        batch_size=batch_size
+    )
+
+
+@router.post(
     "/extract-batch",
     summary="Executar extração em lote",
-    description="Processa documentos pendentes em lote pela LLM.",
+    description="Processa documentos classificados como úteis em lote pela LLM.",
 )
 async def run_extraction_batch(
     service: ServiceDep,

@@ -146,7 +146,7 @@ class _AliasMetricLLM:
         )
 
 
-async def _create_company_and_document(db_session, *, status=DocumentStatus.downloaded):
+async def _create_company_and_document(db_session, *, status=DocumentStatus.classified_useful):
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
     db_session.add(company)
     await db_session.commit()
@@ -216,6 +216,10 @@ async def test_process_document_rejeita_extracao_sem_metricas(db_session):
 
     with pytest.raises(ValueError, match="Nenhuma métrica"):
         await service.process_document(document, company_name=company.name)
+    await db_session.refresh(document)
+
+    assert document.status == DocumentStatus.failed
+    assert document.error_message == "Nenhuma métrica extraída do documento."
 
 
 @pytest.mark.asyncio
@@ -268,7 +272,7 @@ async def test_process_pending_documents_batch_reprocessa_doc_nao_retornado(db_s
         year=2025,
         quarter=3,
         document_type="resultado_trimestral",
-        status=DocumentStatus.downloaded,
+        status=DocumentStatus.classified_useful,
         collected_at=utc_now(),
     )
     db_session.add(second)
@@ -303,7 +307,7 @@ async def test_process_pending_documents_batch_marca_nao_retornado_failed_se_ret
         year=2025,
         quarter=3,
         document_type="resultado_trimestral",
-        status=DocumentStatus.downloaded,
+        status=DocumentStatus.classified_useful,
         collected_at=utc_now(),
     )
     db_session.add(second)

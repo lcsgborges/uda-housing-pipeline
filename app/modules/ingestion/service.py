@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.text import normalize_for_search
 from app.core.time import utc_now
+from app.modules.classification.service import ClassificationService
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
 from app.modules.documents.repository import DocumentRepository
@@ -28,6 +29,7 @@ class IngestionService:
         self.scraper = RIScraper(settings.request_timeout_seconds, settings.user_agent)
         self.downloader = PDFDownloader(settings.request_timeout_seconds, settings.user_agent)
         self.document_repo = DocumentRepository(session)
+        self.classification_service = ClassificationService(session)
         self.extraction_service = ExtractionService(session)
         self.storage = build_object_storage()
 
@@ -72,10 +74,13 @@ class IngestionService:
     async def run_scheduled_cycle(self, company_id: int | None = None) -> dict:
         """Executa ciclo diário: ingere novidades e processa pendências em lotes."""
         ingestion = await self.run(company_id=company_id, extract_after_ingestion=False)
+        classification = await self.classification_service.process_all_pending_documents(
+            batch_size=self.settings.classification_batch_size,
+        )
         extraction = await self.extraction_service.process_all_pending_documents(
             batch_size=self.settings.extraction_batch_size,
         )
-        return {"ingestion": ingestion, "extraction": extraction}
+        return {"ingestion": ingestion, "classification": classification, "extraction": extraction}
 
     async def _ingest_link(
         self,
@@ -131,7 +136,9 @@ class IngestionService:
         document = await self.document_repo.create(document)
 
         if extract_after_ingestion:
-            await self.extraction_service.process_document(document, company_name=company.name)
+            await self.classification_service.classify_document(document, company_name=company.name)
+            if document.status == DocumentStatus.classified_useful:
+                await self.extraction_service.process_document(document, company_name=company.name)
         logger.info("Documento ingerido: company=%s url=%s", company.ticker, url)
         return "processed"
 

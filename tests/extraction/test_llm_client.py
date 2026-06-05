@@ -8,6 +8,7 @@ from app.modules.extraction.llm_client import (
     OllamaLLMClient,
     OpenAILLMClient,
     _build_batch_prompt,
+    _build_classification_prompt,
     _build_single_document_prompt,
     build_llm_client,
 )
@@ -29,10 +30,12 @@ class _HTTPResponse:
 
 class _HTTPClient:
     last_instance = None
+    instances = []
 
     def __init__(self, timeout):
         self.timeout = timeout
         self.requests = []
+        _HTTPClient.instances.append(self)
         _HTTPClient.last_instance = self
 
     def __enter__(self):
@@ -43,7 +46,20 @@ class _HTTPClient:
 
     def post(self, url, json):
         self.requests.append((url, json))
-        if json["format"]["title"] == "ExtractedMetricBatch":
+        if json["format"]["title"] == "DocumentClassification":
+            content = llm_client.DocumentClassification.model_validate(
+                {
+                    "is_useful": True,
+                    "document_type": "resultado_trimestral",
+                    "domains": ["financeiro"],
+                    "year": 2025,
+                    "quarter": 3,
+                    "extraction_strategy": "full_scan",
+                    "reason": "Contém métricas financeiras.",
+                    "confidence": 0.9,
+                }
+            ).model_dump_json()
+        elif json["format"]["title"] == "ExtractedMetricBatch":
             content = ExtractedMetricBatch.model_validate(
                 {
                     "metrics": [
@@ -63,9 +79,26 @@ class _HTTPClient:
 
 
 def test_ollama_llm_client_extrai_metricas_e_batch(monkeypatch):
+    _HTTPClient.instances = []
     monkeypatch.setattr(llm_client.httpx, "Client", _HTTPClient)
-    client = OllamaLLMClient(base_url="http://ollama:11434", model="llama3.1", timeout=30)
+    client = OllamaLLMClient(
+        base_url="http://ollama:11434",
+        model="llama3.1",
+        classification_model="llama-small",
+        timeout=30,
+    )
 
+    classification = client.classify_document(
+        company="MRV",
+        title="Resultado 3T25",
+        original_url="https://example.com/doc.pdf",
+        document_type="resultado_trimestral",
+        year=2025,
+        quarter=3,
+        pages_count=10,
+        text_chars=1000,
+        context="texto",
+    )
     single = client.extract_metrics(
         company="MRV",
         original_url="https://example.com/doc.pdf",
@@ -86,12 +119,14 @@ def test_ollama_llm_client_extrai_metricas_e_batch(monkeypatch):
         ]
     )
 
+    assert classification.is_useful is True
     assert single.metrics[0].metric_name == "vendas_liquidas"
     assert batch.documents[0].document_ref == "doc-1"
     assert batch.documents[0].metrics[0].period_quarter == 3
     assert _HTTPClient.last_instance.timeout == 30
-    assert _HTTPClient.last_instance.requests[0][0] == "http://ollama:11434/api/chat"
-    assert _HTTPClient.last_instance.requests[0][1]["stream"] is False
+    assert _HTTPClient.instances[0].requests[0][0] == "http://ollama:11434/api/chat"
+    assert _HTTPClient.instances[0].requests[0][1]["stream"] is False
+    assert _HTTPClient.instances[0].requests[0][1]["model"] == "llama-small"
 
 
 def test_ollama_llm_rejeita_resposta_sem_conteudo(monkeypatch):
@@ -120,6 +155,7 @@ def test_build_llm_client_default_ollama(monkeypatch):
             llm_provider="ollama",
             ollama_base_url="http://localhost:11434",
             ollama_model="llama3.1",
+            ollama_classification_model="llama-small",
             request_timeout_seconds=20,
         ),
     )
@@ -139,7 +175,11 @@ def test_build_llm_client_openai(monkeypatch):
             openai_model="gpt-test",
         ),
     )
-    monkeypatch.setattr(llm_client, "OpenAILLMClient", lambda api_key, model: sentinel)
+    monkeypatch.setattr(
+        llm_client,
+        "OpenAILLMClient",
+        lambda api_key, model, classification_model=None: sentinel,
+    )
 
     assert build_llm_client() is sentinel
 
@@ -161,6 +201,20 @@ def test_openai_llm_exige_api_key():
 
 
 def test_base_llm_client_metodos_abstratos_rejeitam_uso_direto():
+    with pytest.raises(NotImplementedError):
+        BaseLLMClient.classify_document(
+            object(),
+            company="MRV",
+            title="Resultado",
+            original_url="https://example.com/doc.pdf",
+            document_type="resultado_trimestral",
+            year=2025,
+            quarter=3,
+            pages_count=10,
+            text_chars=1000,
+            context="texto",
+        )
+
     with pytest.raises(NotImplementedError):
         BaseLLMClient.extract_metrics(
             object(),
@@ -187,7 +241,20 @@ class _Responses:
     def parse(self, **kwargs):
         self.calls.append(kwargs)
         text_format = kwargs["text_format"]
-        if text_format is ExtractedMetricBatch:
+        if text_format is llm_client.DocumentClassification:
+            parsed = llm_client.DocumentClassification.model_validate(
+                {
+                    "is_useful": True,
+                    "document_type": "resultado_trimestral",
+                    "domains": ["financeiro"],
+                    "year": 2025,
+                    "quarter": 3,
+                    "extraction_strategy": "full_scan",
+                    "reason": "Contém métricas financeiras.",
+                    "confidence": 0.9,
+                }
+            )
+        elif text_format is ExtractedMetricBatch:
             parsed = ExtractedMetricBatch.model_validate(
                 {
                     "metrics": [
@@ -230,8 +297,23 @@ class _FakeOpenAI:
 
 def test_openai_llm_usa_structured_outputs(monkeypatch):
     monkeypatch.setattr(llm_client, "OpenAI", _FakeOpenAI)
-    client = OpenAILLMClient(api_key="sk-test", model="gpt-test")
+    client = OpenAILLMClient(
+        api_key="sk-test",
+        model="gpt-test",
+        classification_model="gpt-cheap",
+    )
 
+    classification = client.classify_document(
+        company="MRV",
+        title="Resultado 3T25",
+        original_url="https://example.com/doc.pdf",
+        document_type="resultado_trimestral",
+        year=2025,
+        quarter=3,
+        pages_count=10,
+        text_chars=1000,
+        context="conteudo",
+    )
     single = client.extract_metrics(
         company="MRV",
         original_url="https://example.com/doc.pdf",
@@ -253,10 +335,13 @@ def test_openai_llm_usa_structured_outputs(monkeypatch):
     )
 
     calls = _FakeOpenAI.last_instance.responses.calls
+    assert classification.document_type == "resultado_trimestral"
     assert single.metrics[0].metric_name == "vendas_liquidas"
     assert batch.documents[0].document_ref == "doc-1"
-    assert calls[0]["text_format"] is ExtractedMetricBatch
-    assert calls[1]["text_format"] is ExtractedBatchResponse
+    assert calls[0]["model"] == "gpt-cheap"
+    assert calls[0]["text_format"] is llm_client.DocumentClassification
+    assert calls[1]["text_format"] is ExtractedMetricBatch
+    assert calls[2]["text_format"] is ExtractedBatchResponse
     assert calls[0]["temperature"] == 0
 
 
@@ -273,6 +358,19 @@ def test_openai_llm_rejeita_resposta_sem_payload(monkeypatch):
     client = OpenAILLMClient(api_key="sk-test", model="gpt-test")
 
     with pytest.raises(ValueError):
+        client.classify_document(
+            company="MRV",
+            title="Resultado",
+            original_url="https://example.com/doc.pdf",
+            document_type="resultado_trimestral",
+            year=2025,
+            quarter=3,
+            pages_count=10,
+            text_chars=1000,
+            context="conteudo",
+        )
+
+    with pytest.raises(ValueError):
         client.extract_metrics(
             company="MRV",
             original_url="https://example.com/doc.pdf",
@@ -286,6 +384,17 @@ def test_openai_llm_rejeita_resposta_sem_payload(monkeypatch):
 
 
 def test_prompt_builders_incluem_contexto_e_document_ref():
+    classification_prompt = _build_classification_prompt(
+        company="MRV",
+        title="Resultado",
+        original_url="https://example.com/doc.pdf",
+        document_type="resultado_trimestral",
+        year=2025,
+        quarter=3,
+        pages_count=10,
+        text_chars=1000,
+        context="amostra",
+    )
     prompt = _build_single_document_prompt(
         company="MRV",
         original_url="https://example.com/doc.pdf",
@@ -306,6 +415,8 @@ def test_prompt_builders_incluem_contexto_e_document_ref():
         ]
     )
 
+    assert "Classifique o documento" in classification_prompt
+    assert "amostra" in classification_prompt
     assert "Empresa: MRV" in prompt
     assert "conteudo" in prompt
     assert "vendas_liquidas" in llm_client.SYSTEM_PROMPT

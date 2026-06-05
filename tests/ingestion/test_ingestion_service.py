@@ -40,6 +40,28 @@ class _FakeExtraction:
         return {"batches": 1, "selected": 2, "processed": 2, "failed": 0}
 
 
+class _FakeClassification:
+    def __init__(self, status=DocumentStatus.classified_useful):
+        self.status = status
+        self.documents = []
+        self.batch_size = None
+
+    async def classify_document(self, document, company_name):
+        self.documents.append((document, company_name))
+        document.status = self.status
+
+    async def process_all_pending_documents(self, batch_size=None):
+        self.batch_size = batch_size
+        return {
+            "batches": 1,
+            "selected": 2,
+            "useful": 2,
+            "ignored": 0,
+            "needs_ocr": 0,
+            "failed": 0,
+        }
+
+
 @pytest.mark.parametrize(
     ("url", "title", "expected"),
     [
@@ -143,6 +165,7 @@ async def test_ingestion_run_scheduled_cycle_ingere_sem_extrair_imediato(monkeyp
     await db_session.commit()
 
     service = IngestionService(db_session)
+    service.classification_service = _FakeClassification()
     service.extraction_service = _FakeExtraction()
 
     async def fake_ingest(company, url, title, extract_after_ingestion=True):
@@ -159,7 +182,16 @@ async def test_ingestion_run_scheduled_cycle_ingere_sem_extrair_imediato(monkeyp
     result = await service.run_scheduled_cycle()
 
     assert result["ingestion"]["processed"] == 1
+    assert result["classification"] == {
+        "batches": 1,
+        "selected": 2,
+        "useful": 2,
+        "ignored": 0,
+        "needs_ocr": 0,
+        "failed": 0,
+    }
     assert result["extraction"] == {"batches": 1, "selected": 2, "processed": 2, "failed": 0}
+    assert service.classification_service.batch_size == service.settings.classification_batch_size
     assert service.extraction_service.batch_size == service.settings.extraction_batch_size
 
 
@@ -173,6 +205,7 @@ async def test_ingest_link_novo_documento_salva_e_extrai(db_session):
     service = IngestionService(db_session)
     service.downloader = _FakeDownloader(b"pdf novo")
     service.storage = _FakeStorage()
+    service.classification_service = _FakeClassification()
     service.extraction_service = _FakeExtraction()
 
     outcome = await service._ingest_link(
@@ -183,9 +216,34 @@ async def test_ingest_link_novo_documento_salva_e_extrai(db_session):
 
     assert outcome == "processed"
     assert service.storage.stored[0][0].startswith("dirr3/")
+    assert service.classification_service.documents[0][1] == "Direcional"
     assert service.extraction_service.documents[0][1] == "Direcional"
     assert service.extraction_service.documents[0][0].year == 2025
     assert service.extraction_service.documents[0][0].quarter == 2
+
+
+@pytest.mark.asyncio
+async def test_ingest_link_nao_extrai_documento_classificado_como_irrelevante(db_session):
+    company = Company(name="Direcional", ticker="DIRR3", ri_url="https://ri.direcional.com.br")
+    db_session.add(company)
+    await db_session.commit()
+    await db_session.refresh(company)
+
+    service = IngestionService(db_session)
+    service.downloader = _FakeDownloader(b"pdf novo")
+    service.storage = _FakeStorage()
+    service.classification_service = _FakeClassification(status=DocumentStatus.ignored_not_relevant)
+    service.extraction_service = _FakeExtraction()
+
+    outcome = await service._ingest_link(
+        company,
+        "https://ri.direcional.com.br/comunicado.pdf",
+        "Comunicado",
+    )
+
+    assert outcome == "processed"
+    assert service.classification_service.documents[0][1] == "Direcional"
+    assert service.extraction_service.documents == []
 
 
 @pytest.mark.asyncio
