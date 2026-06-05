@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import get_settings
-from app.core.database import Base, engine
 from app.core.logging import configure_logging
 from app.models_registry import Company, DataLineage, Document, DocumentInsight, Metric
 from app.modules.companies.router import router as companies_router
@@ -20,10 +19,8 @@ _ = (Company, Document, Metric, DataLineage, DocumentInsight)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Inicializa schema e scheduler opcional durante o ciclo de vida da API."""
+    """Inicializa scheduler opcional durante o ciclo de vida da API."""
     _ = app
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     settings = get_settings()
     if settings.enable_ingestion_scheduler:
         start_scheduler()

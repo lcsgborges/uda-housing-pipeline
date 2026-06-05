@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.core.config import get_settings
 from app.core.database import Base
-from app.models_registry import Company, DataLineage, Document, Metric
+from app.models_registry import Company, DataLineage, Document, DocumentInsight, Metric
 
 config = context.config
 settings = get_settings()
@@ -17,7 +17,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-_ = (Company, DataLineage, Document, Metric)
+_ = (Company, DataLineage, Document, DocumentInsight, Metric)
 
 
 def run_migrations_offline() -> None:
