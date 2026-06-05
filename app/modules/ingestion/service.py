@@ -163,8 +163,15 @@ def infer_period(url: str, title: str) -> tuple[int | None, int | None]:
 def infer_document_type(text: str) -> str:
     """Classifica o tipo do documento a partir do texto normalizado."""
     normalized = normalize_for_search(text)
+    if "sustentabilidade" in normalized or "esg" in normalized:
+        return "relatorio_sustentabilidade"
     if "previa" in normalized:
         return "previa_operacional"
-    if "resultado" in normalized:
+    if (
+        "resultado" in normalized
+        or "earnings release" in normalized
+        or "release de resultados" in normalized
+        or "divulgacao de resultados" in normalized
+    ):
         return "resultado_trimestral"
     return "outro"

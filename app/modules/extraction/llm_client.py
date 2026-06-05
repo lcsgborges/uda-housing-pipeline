@@ -19,6 +19,9 @@ Priorize valores absolutos reportados pela empresa; ignore percentuais de varia�
 apenas comparativos de marketing.
 Se o documento for um boletim de conjuntura ou uma tabela comparativa cujo valor principal seja uma
 variação percentual, extraia esse percentual como dado válido usando unit="%".
+Se o documento for relatório de sustentabilidade/ESG, extraia indicadores ambientais, sociais,
+governança e GRI quando houver valor explícito, incluindo emissões, água, energia, resíduos,
+segurança do trabalho, diversidade e valor econômico gerado.
 Não calcule, estime ou invente valores. Quando uma métrica não estiver explícita, use null.
 Preserve ano/trimestre informados no payload quando o documento não trouxer período melhor.
 Use preferencialmente os nomes canônicos do catálogo abaixo. Se houver sinônimo, responda com o nome
@@ -42,6 +45,8 @@ class BaseLLMClient(ABC):
         context: str,
         year: int | None,
         quarter: int | None,
+        title: str | None = None,
+        document_type: str | None = None,
     ) -> ExtractedMetricBatch:
         """Extrai métricas estruturadas de um único contexto documental."""
         raise NotImplementedError
@@ -67,6 +72,8 @@ class OllamaLLMClient(BaseLLMClient):
         context: str,
         year: int | None,
         quarter: int | None,
+        title: str | None = None,
+        document_type: str | None = None,
     ) -> ExtractedMetricBatch:
         """Extrai métricas de um documento usando a API local do Ollama."""
         response = self._chat(
@@ -76,6 +83,8 @@ class OllamaLLMClient(BaseLLMClient):
                 context=context,
                 year=year,
                 quarter=quarter,
+                title=title,
+                document_type=document_type,
             ),
             schema=ExtractedMetricBatch.model_json_schema(),
         )
@@ -94,6 +103,8 @@ class OllamaLLMClient(BaseLLMClient):
                         context=payload["context"],
                         year=payload.get("year"),
                         quarter=payload.get("quarter"),
+                        title=payload.get("title"),
+                        document_type=payload.get("document_type"),
                     ).metrics,
                 }
             )
@@ -136,6 +147,8 @@ class OpenAILLMClient(BaseLLMClient):
         context: str,
         year: int | None,
         quarter: int | None,
+        title: str | None = None,
+        document_type: str | None = None,
     ) -> ExtractedMetricBatch:
         """Extrai métricas de um documento usando Structured Outputs da OpenAI."""
         response = self.client.responses.parse(
@@ -150,6 +163,8 @@ class OpenAILLMClient(BaseLLMClient):
                         context=context,
                         year=year,
                         quarter=quarter,
+                        title=title,
+                        document_type=document_type,
                     ),
                 },
             ],
@@ -201,12 +216,16 @@ def _build_single_document_prompt(
     context: str,
     year: int | None,
     quarter: int | None,
+    title: str | None = None,
+    document_type: str | None = None,
 ) -> str:
     """Monta o prompt de usuário para um único documento."""
     return f"""
 Extraia as métricas do documento abaixo.
 
 Empresa: {company}
+Título: {title}
+Tipo inferido: {document_type}
 URL original: {original_url}
 Ano inferido: {year}
 Trimestre inferido: {quarter}
@@ -221,6 +240,7 @@ def _build_batch_prompt(payloads: list[dict]) -> str:
     return f"""
 Extraia as métricas dos documentos abaixo.
 Para cada documento, copie o document_ref recebido para a resposta correspondente.
+Retorne uma entrada em documents para todos os document_ref recebidos, mesmo quando metrics for [].
 
 Documentos:
 {json.dumps(payloads, ensure_ascii=False)}

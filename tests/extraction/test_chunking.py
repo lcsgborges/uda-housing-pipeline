@@ -44,6 +44,25 @@ def test_chunking_marca_pagina_metrica_visual_com_texto_curto():
     assert chunks[0].score >= 12
 
 
+def test_chunking_prioriza_indicadores_esg():
+    chunker = SemanticChunker(max_chars=500)
+    pages = [
+        "Texto institucional sobre cultura.",
+        """
+        CENTRAL DE INDICADORES
+        Em 2025, as emissões de Gases de Efeito Estufa foram de 12.500 tCO2e.
+        O consumo de água totalizou 40.000 m3 e os resíduos gerados chegaram a 8.200 t.
+        """,
+    ]
+
+    chunks = chunker.build_chunks(pages)
+    selected = chunker.select_relevant_chunks(chunks, top_k=1)
+
+    assert selected
+    assert "esg" in selected[0].tags
+    assert "emissões" in selected[0].text.lower()
+
+
 def test_chunking_respeita_orcamento_de_contexto():
     chunker = SemanticChunker(max_chars=120)
     pages = [

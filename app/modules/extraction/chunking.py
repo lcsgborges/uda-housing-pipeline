@@ -46,6 +46,32 @@ SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
         "preco de imoveis",
         *metric_terms_for_category("mercado"),
     ),
+    "esg": (
+        "sustentabilidade",
+        "esg",
+        "gri",
+        "ambiental",
+        "indicadores sociais",
+        "responsabilidade social",
+        "governança",
+        "governanca",
+        "emissões",
+        "emissoes",
+        "gases de efeito estufa",
+        "gee",
+        "co2",
+        "energia",
+        "água",
+        "agua",
+        "resíduos",
+        "residuos",
+        "segurança do trabalho",
+        "seguranca do trabalho",
+        "diversidade",
+        "central de indicadores",
+        *metric_terms_for_category("ambiental"),
+        *metric_terms_for_category("social"),
+    ),
     "periodo": (
         "trimestre",
         "1t",
@@ -64,6 +90,7 @@ SEMANTIC_PROFILES: dict[str, tuple[str, ...]] = {
         "variação",
         "balanço",
         "conjuntura",
+        "central de indicadores",
         "x 2t",
         "x 3t",
         "nove meses",
@@ -86,6 +113,17 @@ VISUAL_METRIC_TERMS = (
     "geração de caixa",
     "geracao de caixa",
     "repasses",
+    "unidades produzidas",
+    "emissões gee",
+    "emissoes gee",
+    "gases de efeito estufa",
+    "consumo de água",
+    "consumo de agua",
+    "resíduos gerados",
+    "residuos gerados",
+    "consumo de energia",
+    "valor econômico gerado",
+    "valor economico gerado",
 )
 
 CRITICAL_METRIC_TERMS = (
@@ -114,6 +152,31 @@ CRITICAL_METRIC_TERMS = (
     "divida liquida",
     "land bank",
     "vgv",
+    "emissões",
+    "emissoes",
+    "gases de efeito estufa",
+    "emissões/up",
+    "emissoes/up",
+    "consumo de energia",
+    "água captada",
+    "agua captada",
+    "água consumida",
+    "agua consumida",
+    "descarte de água",
+    "descarte de agua",
+    "resíduos gerados",
+    "residuos gerados",
+    "valor econômico gerado",
+    "valor economico gerado",
+)
+
+LOW_VALUE_CONTEXT_TERMS = (
+    "glossario",
+    "glossário",
+    "aviso",
+    "disclaimer",
+    "definicoes",
+    "definições",
 )
 
 
@@ -288,6 +351,10 @@ class SemanticChunker:
             score += 5
         if "%" in text or "r$" in normalized or "brl" in normalized:
             score += 3
+        if _is_low_value_context(text, heading=heading):
+            score -= 90
+            if not _has_numeric_signal(text):
+                score -= 60
         return score
 
 
@@ -316,7 +383,14 @@ def _has_numeric_signal(value: str) -> bool:
     normalized = _normalize(value)
     return bool(
         re.search(
-            r"\d+[,.]?\d*\s*(%|p\.p\.|milhões|milhoes|bilhões|bilhoes|k|mm|r\$|us\$)", normalized
+            r"\d+[,.]?\d*\s*(%|p\.p\.|milhões|milhoes|bilhões|bilhoes|k|mm|r\$|us\$|m3|tco2e)",
+            normalized,
         )
         or re.search(r"\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b", normalized)
     )
+
+
+def _is_low_value_context(text: str, *, heading: str | None) -> bool:
+    """Identifica blocos ricos em termos, mas pobres como evidência numérica."""
+    normalized = _normalize(f"{heading or ''}\n{text}")
+    return any(_normalize(term) in normalized for term in LOW_VALUE_CONTEXT_TERMS)

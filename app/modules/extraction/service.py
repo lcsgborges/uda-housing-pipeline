@@ -35,17 +35,33 @@ class ExtractionService:
         payload = {
             "document_ref": str(document.id),
             "company": company_name,
+            "title": document.title,
+            "document_type": document.document_type,
             "original_url": document.original_url,
             "year": document.year,
             "quarter": document.quarter,
             "context": context,
         }
         batch = self.llm.extract_metrics_batch([payload])
-        if not batch.documents:
-            raise ValueError("LLM retornou lote vazio.")
+        batch_item = next(
+            (item for item in batch.documents if item.document_ref == payload["document_ref"]),
+            None,
+        )
+        metrics = batch_item.metrics if batch_item else None
+        if not metrics:
+            retry_metrics, retry_error = self._extract_single_document_metrics(payload)
+            metrics = retry_metrics
+            if retry_error:
+                logger.warning(
+                    "Retry individual falhou para documento %s: %s",
+                    document.id,
+                    retry_error,
+                )
+        if not metrics:
+            raise ValueError("Nenhuma métrica extraída do documento.")
         await self._persist_extraction(
             document=document,
-            metrics=batch.documents[0].metrics,
+            metrics=metrics,
         )
 
     async def process_pending_documents_batch(self, batch_size: int | None = None) -> dict:
@@ -68,6 +84,7 @@ class ExtractionService:
         for doc in docs:
             company_name = doc.company.name if doc.company else "unknown"
             doc.status = DocumentStatus.processing
+            doc.error_message = None
             self.session.add(doc)
             parsed = self._parse_document(doc)
             context = self._build_context(parsed.pages_text)
@@ -77,6 +94,8 @@ class ExtractionService:
                 {
                     "document_ref": doc_ref,
                     "company": company_name,
+                    "title": doc.title,
+                    "document_type": doc.document_type,
                     "original_url": doc.original_url,
                     "year": doc.year,
                     "quarter": doc.quarter,
@@ -89,31 +108,43 @@ class ExtractionService:
         failed = 0
         try:
             extracted_batch = self.llm.extract_metrics_batch(payloads)
-            returned_refs = {item.document_ref for item in extracted_batch.documents}
-
-            for item in extracted_batch.documents:
-                pair = by_ref.get(item.document_ref)
-                if not pair:
-                    continue
-                doc, _ = pair
-                await self._persist_extraction(
-                    document=doc,
-                    metrics=item.metrics,
-                )
-                processed += 1
+            returned_by_ref = {item.document_ref: item for item in extracted_batch.documents}
+            payload_by_ref = {payload["document_ref"]: payload for payload in payloads}
 
             for ref, (doc, _) in by_ref.items():
-                if ref in returned_refs:
+                item = returned_by_ref.get(ref)
+                metrics = item.metrics if item else None
+                failure_message = None
+
+                if not metrics:
+                    retry_metrics, retry_error = self._extract_single_document_metrics(
+                        payload_by_ref[ref]
+                    )
+                    metrics = retry_metrics
+                    if not metrics:
+                        if item is None:
+                            failure_message = "Documento não retornado no batch da LLM."
+                        else:
+                            failure_message = "Nenhuma métrica extraída do documento."
+                        if retry_error:
+                            failure_message = (
+                                f"{failure_message} Retry individual falhou: {retry_error}"
+                            )
+
+                if failure_message:
+                    _mark_document_failed(doc, failure_message)
+                    self.session.add(doc)
+                    failed += 1
                     continue
-                doc.status = DocumentStatus.failed
-                doc.error_message = "Documento não retornado no batch da LLM."
-                self.session.add(doc)
-                failed += 1
+                await self._persist_extraction(
+                    document=doc,
+                    metrics=metrics,
+                )
+                processed += 1
             await self.session.commit()
         except Exception as exc:
             for doc, _ in by_ref.values():
-                doc.status = DocumentStatus.failed
-                doc.error_message = str(exc)
+                _mark_document_failed(doc, str(exc))
                 self.session.add(doc)
             await self.session.commit()
             raise
@@ -134,6 +165,9 @@ class ExtractionService:
 
     async def _persist_extraction(self, *, document: Document, metrics: list) -> None:
         """Persiste métricas normalizadas e seus registros de linhagem."""
+        if not metrics:
+            raise ValueError("Nenhuma métrica extraída do documento.")
+
         metric_rows: list[Metric] = []
         lineage_rows: list[DataLineage] = []
         for item in metrics:
@@ -187,6 +221,22 @@ class ExtractionService:
         self.session.add(document)
         await self.session.commit()
 
+    def _extract_single_document_metrics(self, payload: dict) -> tuple[list | None, str | None]:
+        """Tenta reprocessar um documento individualmente após falha no batch."""
+        try:
+            extracted = self.llm.extract_metrics(
+                company=payload["company"],
+                title=payload.get("title"),
+                document_type=payload.get("document_type"),
+                original_url=payload["original_url"],
+                context=payload["context"],
+                year=payload.get("year"),
+                quarter=payload.get("quarter"),
+            )
+        except Exception as exc:
+            return None, str(exc)
+        return extracted.metrics, None
+
     def _parse_document(self, document: Document):
         """Lê e parseia um documento a partir de path local ou storage URI."""
         if not document.local_path:
@@ -223,6 +273,13 @@ class ExtractionService:
 def _is_storage_uri(value: str) -> bool:
     """Indica se o caminho aponta para um backend de storage conhecido."""
     return value.startswith(("file://", "rustfs://", "s3://"))
+
+
+def _mark_document_failed(document: Document, message: str) -> None:
+    """Atualiza um documento para falha mantendo a mensagem auditável."""
+    document.status = DocumentStatus.failed
+    document.processed_at = None
+    document.error_message = message
 
 
 def _format_chunk_for_llm(chunk: Chunk) -> str:

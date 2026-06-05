@@ -39,10 +39,35 @@ class _FakeStorage:
 
 
 class _BatchLLM:
-    def __init__(self, returned_refs=None, fail=False):
+    def __init__(self, returned_refs=None, fail=False, single_fail=False):
         self.returned_refs = returned_refs
         self.fail = fail
+        self.single_fail = single_fail
         self.payloads = []
+
+    def _metric_payload(self):
+        return {
+            "company": "MRV",
+            "period_year": 2025,
+            "period_quarter": 3,
+            "metric_name": "vendas_liquidas",
+            "metric_category": "operacional",
+            "value": 100.0,
+            "unit": "R$",
+            "currency": "BRL",
+            "source_page": 1,
+            "source_excerpt": "Vendas liquidas R$ 100 milhoes",
+            "confidence": 0.95,
+        }
+
+    def extract_metrics(self, **kwargs):
+        if self.single_fail:
+            raise RuntimeError("falha retry individual")
+        return SimpleNamespace(
+            metrics=[
+                SimpleNamespace(**self._metric_payload()),
+            ]
+        )
 
     def extract_metrics_batch(self, payloads):
         self.payloads.append(payloads)
@@ -56,21 +81,7 @@ class _BatchLLM:
                 "documents": [
                     {
                         "document_ref": ref,
-                        "metrics": [
-                            {
-                                "company": "MRV",
-                                "period_year": 2025,
-                                "period_quarter": 3,
-                                "metric_name": "vendas_liquidas",
-                                "metric_category": "operacional",
-                                "value": 100.0,
-                                "unit": "R$",
-                                "currency": "BRL",
-                                "source_page": 1,
-                                "source_excerpt": "Vendas liquidas R$ 100 milhoes",
-                                "confidence": 0.95,
-                            }
-                        ],
+                        "metrics": [self._metric_payload()],
                     }
                     for ref in refs
                 ]
@@ -79,11 +90,35 @@ class _BatchLLM:
 
 
 class _EmptyBatchLLM:
+    def extract_metrics(self, **kwargs):
+        return SimpleNamespace(metrics=[])
+
     def extract_metrics_batch(self, payloads):
         return ExtractedBatchResponse.model_validate({"documents": []})
 
 
+class _EmptyMetricsBatchLLM:
+    def extract_metrics(self, **kwargs):
+        return SimpleNamespace(metrics=[])
+
+    def extract_metrics_batch(self, payloads):
+        return ExtractedBatchResponse.model_validate(
+            {
+                "documents": [
+                    {
+                        "document_ref": payload["document_ref"],
+                        "metrics": [],
+                    }
+                    for payload in payloads
+                ]
+            }
+        )
+
+
 class _AliasMetricLLM:
+    def extract_metrics(self, **kwargs):
+        return SimpleNamespace(metrics=[])
+
     def extract_metrics_batch(self, payloads):
         return ExtractedBatchResponse.model_validate(
             {
@@ -173,13 +208,13 @@ async def test_process_document_normaliza_alias_e_enriquece_metadados(db_session
 
 
 @pytest.mark.asyncio
-async def test_process_document_rejeita_lote_vazio_da_llm(db_session):
+async def test_process_document_rejeita_extracao_sem_metricas(db_session):
     company, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
     service.llm = _EmptyBatchLLM()
 
-    with pytest.raises(ValueError, match="lote vazio"):
+    with pytest.raises(ValueError, match="Nenhuma métrica"):
         await service.process_document(document, company_name=company.name)
 
 
@@ -222,7 +257,7 @@ async def test_process_all_pending_documents_agrega_lotes(db_session, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_process_pending_documents_batch_marca_nao_retornado_como_failed(db_session):
+async def test_process_pending_documents_batch_reprocessa_doc_nao_retornado(db_session):
     company, first = await _create_company_and_document(db_session)
     second = Document(
         company_id=company.id,
@@ -248,10 +283,62 @@ async def test_process_pending_documents_batch_marca_nao_retornado_como_failed(d
     await db_session.refresh(first)
     await db_session.refresh(second)
 
+    assert result == {"selected": 2, "processed": 2, "failed": 0}
+    assert first.status == DocumentStatus.processed
+    assert second.status == DocumentStatus.processed
+    assert second.error_message is None
+
+
+@pytest.mark.asyncio
+async def test_process_pending_documents_batch_marca_nao_retornado_failed_se_retry_falha(
+    db_session,
+):
+    company, first = await _create_company_and_document(db_session)
+    second = Document(
+        company_id=company.id,
+        title="Resultado 3T25",
+        original_url="https://ri.mrv.com.br/resultado-3t25.pdf",
+        local_path="/tmp/resultado.pdf",
+        file_hash="hash_extraction_2",
+        year=2025,
+        quarter=3,
+        document_type="resultado_trimestral",
+        status=DocumentStatus.downloaded,
+        collected_at=utc_now(),
+    )
+    db_session.add(second)
+    await db_session.commit()
+    await db_session.refresh(second)
+
+    service = ExtractionService(db_session)
+    service.parser = _FakeParser()
+    service.llm = _BatchLLM(returned_refs=[str(first.id)], single_fail=True)
+
+    result = await service.process_pending_documents_batch(batch_size=10)
+    await db_session.refresh(first)
+    await db_session.refresh(second)
+
     assert result == {"selected": 2, "processed": 1, "failed": 1}
     assert first.status == DocumentStatus.processed
     assert second.status == DocumentStatus.failed
-    assert second.error_message == "Documento não retornado no batch da LLM."
+    assert second.error_message.startswith("Documento não retornado no batch da LLM.")
+
+
+@pytest.mark.asyncio
+async def test_process_pending_documents_batch_marca_failed_quando_sem_metricas(db_session):
+    _, document = await _create_company_and_document(db_session)
+    service = ExtractionService(db_session)
+    service.parser = _FakeParser()
+    service.llm = _EmptyMetricsBatchLLM()
+
+    result = await service.process_pending_documents_batch(batch_size=1)
+    await db_session.refresh(document)
+    metrics = list((await db_session.scalars(select(Metric))).all())
+
+    assert result == {"selected": 1, "processed": 0, "failed": 1}
+    assert metrics == []
+    assert document.status == DocumentStatus.failed
+    assert document.error_message == "Nenhuma métrica extraída do documento."
 
 
 @pytest.mark.asyncio

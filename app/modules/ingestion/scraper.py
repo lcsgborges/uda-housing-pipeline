@@ -11,6 +11,11 @@ KEYWORDS = [
     "resultados",
     "resultado trimestral",
     "divulgação de resultados",
+    "earnings release",
+    "release de resultados",
+    "relatório de sustentabilidade",
+    "sustentabilidade",
+    "esg",
 ]
 
 
