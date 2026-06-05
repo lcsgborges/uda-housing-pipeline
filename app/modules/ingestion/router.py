@@ -17,6 +17,7 @@ def get_service(session: SessionDep) -> IngestionService:
 
 
 CompanyId = Annotated[int, Path(description="ID da empresa que terá a ingestão executada.")]
+BatchId = Annotated[str, Path(description="ID do batch assíncrono criado na OpenAI.")]
 ServiceDep = Annotated[IngestionService, Depends(get_service)]
 
 
@@ -76,10 +77,50 @@ async def run_classification_batch(
 async def run_extraction_batch(
     service: ServiceDep,
     batch_size: int = Query(
-        default=5,
+        default=1,
         ge=1,
         description="Quantidade máxima de documentos no lote.",
     ),
 ):
     """Endpoint para processar documentos pendentes em lote pela LLM."""
     return await service.extraction_service.process_pending_documents_batch(batch_size=batch_size)
+
+
+@router.post(
+    "/openai-batch/submit",
+    summary="Submeter extração assíncrona na OpenAI Batch API",
+    description=(
+        "Seleciona documentos úteis, monta uma linha JSONL por parte documental e "
+        "cria um batch assíncrono no endpoint /v1/responses."
+    ),
+)
+async def submit_openai_batch(
+    service: ServiceDep,
+    batch_size: int = Query(
+        default=1,
+        ge=1,
+        description="Quantidade máxima de documentos selecionados para o batch.",
+    ),
+):
+    """Endpoint para submeter extração offline pela OpenAI Batch API."""
+    return await service.extraction_service.submit_openai_extraction_batch(
+        batch_size=batch_size
+    )
+
+
+@router.get(
+    "/openai-batch/{batch_id}",
+    summary="Consultar status de batch OpenAI",
+)
+async def get_openai_batch_status(batch_id: BatchId, service: ServiceDep):
+    """Endpoint para consultar status de um batch assíncrono da OpenAI."""
+    return service.extraction_service.get_openai_extraction_batch_status(batch_id)
+
+
+@router.post(
+    "/openai-batch/{batch_id}/import",
+    summary="Importar resultado de batch OpenAI",
+)
+async def import_openai_batch(batch_id: BatchId, service: ServiceDep):
+    """Endpoint para baixar output_file_id e persistir métricas/insights."""
+    return await service.extraction_service.import_openai_extraction_batch(batch_id)

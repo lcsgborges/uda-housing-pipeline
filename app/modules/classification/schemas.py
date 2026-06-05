@@ -10,7 +10,13 @@ ClassificationDomain = Literal[
     "governanca",
     "outro",
 ]
-ExtractionStrategy = Literal["full_scan", "semantic_chunking", "ignore", "needs_ocr"]
+ExtractionStrategy = Literal[
+    "full_scan",
+    "semantic_chunking",
+    "sequential_scan",
+    "ignore",
+    "needs_ocr",
+]
 
 
 class DocumentClassification(BaseModel):

@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +7,7 @@ from sqlalchemy import select
 from app.core.time import utc_now
 from app.modules.companies.models import Company
 from app.modules.documents.models import Document, DocumentStatus
+from app.modules.extraction import service as extraction_module
 from app.modules.extraction.service import (
     ExtractionService,
     _extraction_model_name,
@@ -16,7 +18,7 @@ from app.modules.extraction.service import (
 from app.modules.insights.models import DocumentInsight
 from app.modules.lineage.models import DataLineage
 from app.modules.metrics.models import Metric
-from app.modules.metrics.schemas import ExtractedBatchResponse
+from app.modules.metrics.schemas import ExtractedBatchResponse, ExtractedMetricBatch
 
 
 class _FakeParser:
@@ -227,6 +229,80 @@ class _InsightLLM:
         )
 
 
+class _SequentialScanLLM:
+    def __init__(self):
+        """Inicializa LLM fake que retorna uma métrica diferente por parte."""
+        self.payloads = []
+
+    def extract_metrics(self, **kwargs):
+        """Retorna extração individual vazia para manter foco no batch por parte."""
+        return SimpleNamespace(metrics=[], insights=[])
+
+    def extract_metrics_batch(self, payloads):
+        """Registra cada payload de parte e retorna métrica rastreável."""
+        self.payloads.append(payloads)
+        payload = payloads[0]
+        part = len(self.payloads)
+        return ExtractedBatchResponse.model_validate(
+            {
+                "documents": [
+                    {
+                        "document_ref": payload["document_ref"],
+                        "metrics": [
+                            {
+                                "company": "MRV",
+                                "period_year": 2025,
+                                "period_quarter": 3,
+                                "metric_name": "vendas_liquidas",
+                                "metric_category": "operacional",
+                                "dimension": f"parte {part}",
+                                "value": float(part),
+                                "unit": "R$",
+                                "currency": "BRL",
+                                "source_page": part,
+                                "source_excerpt": payload["context"][:200],
+                                "confidence": 0.9,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+
+class _FakeOpenAIBatchClient:
+    def __init__(self, output_text: str = ""):
+        """Inicializa cliente fake da OpenAI Batch API."""
+        self.output_text = output_text
+        self.requests = []
+        self.batch = SimpleNamespace(
+            id="batch_test",
+            status="completed",
+            output_file_id="file_output",
+            error_file_id=None,
+        )
+        self.uploaded = SimpleNamespace(id="file_input")
+
+    def build_extraction_request(self, *, custom_id: str, payload: dict) -> dict:
+        """Monta request fake preservando custom_id e payload."""
+        return {"custom_id": custom_id, "payload": payload}
+
+    def submit_requests(self, requests: list[dict]):
+        """Registra requests submetidos e retorna arquivo/batch fake."""
+        self.requests = requests
+        return self.uploaded, self.batch
+
+    def retrieve_batch(self, batch_id: str):
+        """Retorna batch fake validando o identificador."""
+        assert batch_id == self.batch.id
+        return self.batch
+
+    def download_file_text(self, file_id: str) -> str:
+        """Retorna output JSONL fake."""
+        assert file_id == self.batch.output_file_id
+        return self.output_text
+
+
 async def _create_company_and_document(db_session, *, status=DocumentStatus.classified_useful):
     """Cria empresa e documento para testes do serviço de extração."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
@@ -314,6 +390,136 @@ async def test_process_document_persiste_insights_e_contexto_da_metrica(db_sessi
     assert len(insights) == 1
     assert insights[0].insight_type == "meta"
     assert insights[0].topic == "emissoes_gee"
+    assert document.status == DocumentStatus.processed
+
+
+@pytest.mark.asyncio
+async def test_process_document_varre_documento_longo_em_partes_sequenciais(
+    monkeypatch,
+    db_session,
+):
+    """Garante que documentos longos são analisados em várias partes sequenciais."""
+    company, document = await _create_company_and_document(db_session)
+    pages = [
+        "Página inicial com vendas liquidas " + ("A " * 120),
+        "Página intermediária com banco de terrenos " + ("B " * 120),
+        "Página final com distratos e repasses " + ("C " * 120),
+    ]
+    service = ExtractionService(db_session)
+    service.parser = _FakeParser(pages_text=pages)
+    service.llm = _SequentialScanLLM()
+    monkeypatch.setattr(service.settings, "extraction_full_scan_max_chars", 20)
+    monkeypatch.setattr(service.settings, "extraction_context_max_chars", 180)
+
+    await service.process_document(document, company_name=company.name)
+
+    contexts = [payloads[0]["context"] for payloads in service.llm.payloads]
+    metrics = list((await db_session.scalars(select(Metric))).all())
+    await db_session.refresh(document)
+
+    assert len(contexts) > 1
+    assert contexts[0].startswith("[MODO sequential_scan")
+    assert any("[Página 1" in context for context in contexts)
+    assert any("[Página 3" in context for context in contexts)
+    assert len(metrics) == len(contexts)
+    assert document.status == DocumentStatus.processed
+
+
+@pytest.mark.asyncio
+async def test_submit_openai_extraction_batch_cria_jsonl_por_partes(
+    monkeypatch,
+    db_session,
+):
+    """Garante submissão de partes documentais pela OpenAI Batch API."""
+    _, document = await _create_company_and_document(db_session)
+    service = ExtractionService(db_session)
+    service.parser = _FakeParser(
+        pages_text=[
+            "Página inicial com vendas liquidas " + ("A " * 120),
+            "Página final com landbank " + ("B " * 120),
+        ]
+    )
+    monkeypatch.setattr(service.settings, "llm_provider", "openai")
+    monkeypatch.setattr(service.settings, "extraction_full_scan_max_chars", 20)
+    monkeypatch.setattr(service.settings, "extraction_context_max_chars", 180)
+    fake_client = _FakeOpenAIBatchClient()
+    monkeypatch.setattr(extraction_module, "build_openai_batch_client", lambda: fake_client)
+
+    result = await service.submit_openai_extraction_batch(batch_size=1)
+    await db_session.refresh(document)
+
+    assert result["batch_id"] == "batch_test"
+    assert result["input_file_id"] == "file_input"
+    assert result["requests"] == len(fake_client.requests)
+    assert len(fake_client.requests) > 1
+    assert fake_client.requests[0]["custom_id"].startswith(f"document-{document.id}-part-1-of-")
+    assert fake_client.requests[0]["payload"]["document_ref"].startswith(f"{document.id}:part:1")
+    assert document.status == DocumentStatus.processing
+    assert document.error_message == "OpenAI batch pendente: batch_test"
+
+
+@pytest.mark.asyncio
+async def test_import_openai_extraction_batch_persiste_resultado(
+    monkeypatch,
+    db_session,
+):
+    """Garante importação de output JSONL da OpenAI Batch API."""
+    _, document = await _create_company_and_document(db_session, status=DocumentStatus.processing)
+    extracted = ExtractedMetricBatch.model_validate(
+        {
+            "metrics": [
+                {
+                    "company": "MRV",
+                    "period_year": 2025,
+                    "period_quarter": 3,
+                    "metric_name": "vendas_liquidas",
+                    "metric_category": "operacional",
+                    "value": 123.0,
+                    "unit": "R$",
+                    "currency": "BRL",
+                    "source_page": 1,
+                    "source_excerpt": "Vendas liquidas de R$ 123 milhões.",
+                    "confidence": 0.91,
+                }
+            ],
+            "insights": [],
+        }
+    )
+    output_line = {
+        "custom_id": f"document-{document.id}-part-1-of-1",
+        "response": {
+            "status_code": 200,
+            "body": {
+                "output": [
+                    {
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": extracted.model_dump_json(),
+                            }
+                        ]
+                    }
+                ]
+            },
+        },
+        "error": None,
+    }
+    fake_client = _FakeOpenAIBatchClient(
+        output_text=json.dumps(output_line, ensure_ascii=False) + "\n"
+    )
+    monkeypatch.setattr(extraction_module, "build_openai_batch_client", lambda: fake_client)
+    service = ExtractionService(db_session)
+    monkeypatch.setattr(service.settings, "llm_provider", "openai")
+
+    result = await service.import_openai_extraction_batch("batch_test")
+
+    metric = (await db_session.scalars(select(Metric))).one()
+    await db_session.refresh(document)
+
+    assert result["imported"] == 1
+    assert result["failed"] == 0
+    assert metric.metric_name == "vendas_liquidas"
+    assert metric.value == 123.0
     assert document.status == DocumentStatus.processed
 
 
@@ -478,20 +684,25 @@ async def test_process_pending_documents_batch_marca_failed_quando_llm_falha(db_
     assert document.error_message == "falha llm"
 
 
-def test_build_context_full_scan_e_chunking(monkeypatch):
-    """Valida escolha entre contexto full scan e chunking semântico."""
+def test_build_context_full_scan_e_varredura_sequencial(monkeypatch):
+    """Valida escolha entre contexto completo e varredura sequencial."""
     service = ExtractionService(None)
     full_scan = service._build_context(["Texto curto"])
 
     monkeypatch.setattr(service.settings, "extraction_full_scan_max_chars", 20)
-    monkeypatch.setattr(service.settings, "extraction_context_max_chars", 300)
-    chunked = service._build_context(
-        ["DESEMPENHO OPERACIONAL\n" + "\n".join(["Vendas liquidas R$ 100 milhoes"] * 30)]
-    )
+    monkeypatch.setattr(service.settings, "extraction_context_max_chars", 160)
+    long_pages = [
+        "DESEMPENHO OPERACIONAL\n" + ("Vendas liquidas R$ 100 milhoes. " * 8),
+        "BANCO DE TERRENOS\n" + ("Landbank total de R$ 200 milhoes. " * 8),
+    ]
+    contexts = service._build_contexts(long_pages)
+    first_context = service._build_context(long_pages)
 
     assert full_scan.startswith("[MODO full_scan]")
-    assert chunked.startswith("[MODO semantic_chunking]")
-    assert "Página 1" in chunked
+    assert len(contexts) > 1
+    assert first_context == contexts[0]
+    assert all(context.startswith("[MODO sequential_scan") for context in contexts)
+    assert any("Página 2" in context for context in contexts)
 
 
 def test_parse_document_lida_com_path_storage_uri_e_sem_path():

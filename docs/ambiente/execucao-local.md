@@ -45,7 +45,15 @@ curl -X POST "http://localhost:8000/api/ingestion/classify-batch?batch_size=5"
 ```
 
 ```bash
-curl -X POST "http://localhost:8000/api/ingestion/extract-batch?batch_size=5"
+curl -X POST "http://localhost:8000/api/ingestion/extract-batch?batch_size=1"
+```
+
+Para o fluxo com desconto da OpenAI Batch API:
+
+```bash
+curl -X POST "http://localhost:8000/api/ingestion/openai-batch/submit?batch_size=1"
+curl "http://localhost:8000/api/ingestion/openai-batch/{batch_id}"
+curl -X POST "http://localhost:8000/api/ingestion/openai-batch/{batch_id}/import"
 ```
 
 ```bash

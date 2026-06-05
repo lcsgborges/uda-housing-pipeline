@@ -179,6 +179,8 @@ def infer_document_type(text: str) -> str:
         or "earnings release" in normalized
         or "release de resultados" in normalized
         or "divulgacao de resultados" in normalized
+        or "itr" in normalized
+        or "dfp" in normalized
     ):
         return "resultado_trimestral"
     return "outro"

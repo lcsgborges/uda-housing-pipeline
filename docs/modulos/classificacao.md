@@ -33,9 +33,11 @@ O módulo de classificação decide se um PDF baixado deve seguir para extraçã
 - `document_type`: tipo em `snake_case`, como `resultado_trimestral` ou `relatorio_sustentabilidade`.
 - `domains`: domínios detectados, como financeiro, operacional, ESG ou mercado.
 - `year` e `quarter`: período quando houver evidência.
-- `extraction_strategy`: `full_scan`, `semantic_chunking`, `ignore` ou `needs_ocr`.
+- `extraction_strategy`: `full_scan`, `sequential_scan`, `ignore` ou `needs_ocr`.
 - `reason`: justificativa curta.
 - `confidence`: confiança entre `0` e `1`.
+
+O valor legado `semantic_chunking` ainda é aceito pelo contrato para compatibilidade com classificações antigas, mas a extração atual usa varredura sequencial completa para documentos longos.
 
 ## Estados Gerados
 

@@ -6,7 +6,7 @@ A aplicação é uma API FastAPI com módulos de domínio separados por responsa
 
 ![Pipeline UDA — Fluxo](../assets/pipeline.png)
 
-> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), classificação, extração (PDF parser, chunking, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
+> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), classificação, extração (PDF parser, segmentação sequencial, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
 
 ## Camadas
 
@@ -58,7 +58,7 @@ Documentos úteis recebem `classified_useful`; documentos irrelevantes recebem `
 
 ### LLM Providers
 
-A classificação e a extração usam contrato Pydantic antes da persistência. Com `openai`, a extração de documentos pendentes é agrupada em lote usando Structured Outputs. Com `ollama`, a chamada de lote é implementada como processamento sequencial no servidor local.
+A classificação e a extração usam contrato Pydantic antes da persistência. Com `openai`, a extração pode rodar de forma síncrona via Responses API ou de forma offline pela OpenAI Batch API, com uma request JSONL por parte documental. Com `ollama`, a chamada de lote é implementada como processamento sequencial no servidor local.
 
 As respostas podem conter duas camadas:
 

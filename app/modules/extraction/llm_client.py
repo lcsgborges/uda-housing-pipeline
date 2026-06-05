@@ -1,8 +1,10 @@
 import json
 from abc import ABC, abstractmethod
+from tempfile import NamedTemporaryFile
 
 import httpx
 from openai import OpenAI
+from openai.lib._pydantic import to_strict_json_schema
 
 from app.core.config import get_settings
 from app.modules.classification.schemas import DocumentClassification
@@ -14,7 +16,7 @@ from app.modules.metrics.schemas import (
 
 SYSTEM_PROMPT = f"""
 Você é um módulo UDA para relatórios de incorporadoras brasileiras.
-Você receberá texto integral de PDFs curtos ou chunks semânticos de PDFs longos.
+Você receberá texto integral de PDFs curtos ou partes sequenciais de PDFs longos.
 Extraia duas camadas de informação explícita no contexto enviado:
 1. Métricas numéricas estruturadas, quando houver valor numérico claro.
 2. Insights/fatos documentais úteis, inclusive quando forem qualitativos.
@@ -62,7 +64,7 @@ Escolha document_type em snake_case, por exemplo: resultado_trimestral, previa_o
 relatorio_sustentabilidade, boletim_conjuntura, comunicado, assembleia, outro.
 Escolha extraction_strategy:
 - full_scan para documentos curtos e úteis;
-- semantic_chunking para documentos longos e úteis;
+- sequential_scan para documentos longos e úteis;
 - ignore para documentos sem dados úteis;
 - needs_ocr quando o texto extraído for insuficiente.
 
@@ -187,18 +189,20 @@ class OllamaLLMClient(BaseLLMClient):
         """Processa payloads sequencialmente no Ollama, sem chamada batch remota."""
         docs = []
         for payload in payloads:
+            extracted = self.extract_metrics(
+                company=payload["company"],
+                original_url=payload["original_url"],
+                context=payload["context"],
+                year=payload.get("year"),
+                quarter=payload.get("quarter"),
+                title=payload.get("title"),
+                document_type=payload.get("document_type"),
+            )
             docs.append(
                 {
                     "document_ref": payload["document_ref"],
-                    "metrics": self.extract_metrics(
-                        company=payload["company"],
-                        original_url=payload["original_url"],
-                        context=payload["context"],
-                        year=payload.get("year"),
-                        quarter=payload.get("quarter"),
-                        title=payload.get("title"),
-                        document_type=payload.get("document_type"),
-                    ).metrics,
+                    "metrics": extracted.metrics,
+                    "insights": extracted.insights,
                 }
             )
         return ExtractedBatchResponse.model_validate({"documents": docs})
@@ -335,6 +339,82 @@ class OpenAILLMClient(BaseLLMClient):
         return response.output_parsed
 
 
+class OpenAIResponsesBatchClient:
+    def __init__(self, *, api_key: str, model: str, completion_window: str = "24h"):
+        """Inicializa cliente da OpenAI Batch API para o endpoint Responses."""
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY precisa estar configurada para usar Batch API.")
+        self.client = OpenAI(api_key=api_key)
+        self.model = model
+        self.completion_window = completion_window
+
+    def build_extraction_request(self, *, custom_id: str, payload: dict) -> dict:
+        """Monta uma linha JSONL da Batch API para extrair um payload documental."""
+        return {
+            "custom_id": custom_id,
+            "method": "POST",
+            "url": "/v1/responses",
+            "body": {
+                "model": self.model,
+                "input": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": _build_single_document_prompt(
+                            company=payload["company"],
+                            original_url=payload["original_url"],
+                            context=payload["context"],
+                            year=payload.get("year"),
+                            quarter=payload.get("quarter"),
+                            title=payload.get("title"),
+                            document_type=payload.get("document_type"),
+                        ),
+                    },
+                ],
+                "text": {"format": _json_schema_format(ExtractedMetricBatch)},
+                "temperature": 0,
+            },
+        }
+
+    def submit_requests(self, requests: list[dict]):
+        """Envia arquivo JSONL e cria um batch assíncrono na OpenAI."""
+        with NamedTemporaryFile("w+b", suffix=".jsonl") as file:
+            for request in requests:
+                line = json.dumps(request, ensure_ascii=False) + "\n"
+                file.write(line.encode("utf-8"))
+            file.flush()
+            file.seek(0)
+            uploaded = self.client.files.create(file=file, purpose="batch")
+        batch = self.client.batches.create(
+            input_file_id=uploaded.id,
+            endpoint="/v1/responses",
+            completion_window=self.completion_window,
+        )
+        return uploaded, batch
+
+    def retrieve_batch(self, batch_id: str):
+        """Consulta metadados e status de um batch OpenAI."""
+        return self.client.batches.retrieve(batch_id)
+
+    def download_file_text(self, file_id: str) -> str:
+        """Baixa conteúdo textual de um arquivo retornado pela OpenAI."""
+        content = self.client.files.content(file_id)
+        text = getattr(content, "text", None)
+        if callable(text):
+            return text()
+        if isinstance(text, str):
+            return text
+        raw = getattr(content, "content", None)
+        if isinstance(raw, bytes):
+            return raw.decode("utf-8")
+        if hasattr(content, "read"):
+            data = content.read()
+            if isinstance(data, bytes):
+                return data.decode("utf-8")
+            return str(data)
+        return str(content)
+
+
 def build_llm_client() -> BaseLLMClient:
     """Constrói o cliente LLM conforme o provider configurado."""
     settings = get_settings()
@@ -353,6 +433,26 @@ def build_llm_client() -> BaseLLMClient:
             classification_model=getattr(settings, "ollama_classification_model", None),
         )
     raise ValueError("LLM_PROVIDER deve ser 'openai' ou 'ollama'.")
+
+
+def build_openai_batch_client() -> OpenAIResponsesBatchClient:
+    """Constrói o cliente da OpenAI Batch API a partir das configurações."""
+    settings = get_settings()
+    return OpenAIResponsesBatchClient(
+        api_key=settings.openai_api_key,
+        model=settings.openai_model,
+        completion_window=settings.openai_batch_completion_window,
+    )
+
+
+def _json_schema_format(model_type: type) -> dict:
+    """Converte um modelo Pydantic no formato JSON Schema da Responses API."""
+    return {
+        "type": "json_schema",
+        "name": model_type.__name__,
+        "schema": to_strict_json_schema(model_type),
+        "strict": True,
+    }
 
 
 def _build_classification_prompt(

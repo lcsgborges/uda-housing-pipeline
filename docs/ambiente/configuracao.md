@@ -43,11 +43,13 @@ Variáveis principais:
 | `RUSTFS_*` | Configuração do storage S3 compatível. |
 | `COMPOSE_RUSTFS_ENDPOINT` | Endpoint interno do RustFS para a API dentro do Docker Compose. |
 | `CLASSIFICATION_BATCH_SIZE` | Tamanho padrão dos lotes de classificação. |
-| `EXTRACTION_BATCH_SIZE` | Tamanho padrão de lote. |
+| `EXTRACTION_BATCH_SIZE` | Quantos documentos úteis são selecionados por rodada de extração; recomendado `1` para controlar custo. |
 | `CLASSIFICATION_CONTEXT_MAX_CHARS` | Tamanho máximo da amostra enviada ao classificador. |
 | `CLASSIFICATION_SAMPLE_PAGES` | Quantidade de páginas iniciais usadas na amostra de classificação. |
 | `EXTRACTION_FULL_SCAN_MAX_CHARS` | Limite para enviar documento inteiro em extração. |
-| `EXTRACTION_CONTEXT_MAX_CHARS` | Limite de contexto para chunks semânticos. |
+| `EXTRACTION_CONTEXT_MAX_CHARS` | Limite de caracteres de cada parte enviada na varredura sequencial. |
+| `EXTRACTION_LLM_BATCH_MAX_CHARS` | Orçamento aproximado para agrupar payloads em chamadas síncronas. |
+| `OPENAI_BATCH_COMPLETION_WINDOW` | Janela da OpenAI Batch API; atualmente `24h`. |
 | `ENABLE_INGESTION_SCHEDULER` | Habilita scheduler junto da API. |
 | `INGESTION_SCHEDULE_HOUR` | Hora diária do ciclo; padrão `2`. |
 | `INGESTION_SCHEDULE_MINUTE` | Minuto diário do ciclo; padrão `0`. |

@@ -13,7 +13,11 @@ Código principal:
 
 ## 2. Descoberta de Documentos
 
-O scraper visita a página de RI e pontua links candidatos. Links mais relevantes costumam conter termos como resultado, prévia, release, trimestre e PDF.
+O scraper visita a página de RI e pontua links candidatos. Links mais relevantes costumam conter termos como resultado, prévia, release, ITR/DFP, trimestre e PDF.
+
+Quando os documentos estão no HTML, a coleta usa os `<a href>` da página e ignora regiões de navegação para evitar links institucionais. Quando a página usa File Manager da MZiQ, como a Central de Resultados da MRV, o HTML traz apenas a configuração JavaScript. Nesse caso o scraper extrai `fmId`, `fmBase`, idioma e categorias, chama a API MZiQ e coleta os metadados publicados de todos os anos disponíveis.
+
+Na central de resultados MZiQ, a busca automática considera as categorias de release/resultados, prévia operacional e ITR/DFP. Planilhas, áudios e transcrições não entram nesse caminho, porque a ingestão baixa PDFs para classificação e extração.
 
 Código principal:
 
@@ -64,8 +68,10 @@ Código principal:
 
 Somente documentos em `classified_useful` seguem para extração. O parser extrai texto por página com PyMuPDF. Depois o serviço decide entre:
 
-- `full_scan`: documentos curtos entram completos no contexto.
-- `semantic_chunking`: documentos longos são quebrados em chunks e ranqueados.
+- `full_scan`: documentos curtos entram completos em uma chamada.
+- `sequential_scan`: documentos longos são quebrados em partes sequenciais e todas as partes são enviadas à LLM.
+
+O `sequential_scan` analisa o documento inteiro sem montar um prompt único gigante. Cada parte respeita `EXTRACTION_CONTEXT_MAX_CHARS`; as respostas são consolidadas e deduplicadas antes da persistência. Se uma parte falhar, o documento inteiro fica `failed` para manter a auditoria honesta.
 
 Código principal:
 
@@ -82,7 +88,7 @@ O contrato permite duas saídas:
 - métricas numéricas, persistidas em `metrics`;
 - insights/fatos documentais, persistidos em `document_insights`.
 
-Com `LLM_PROVIDER=openai`, o serviço envia vários documentos em uma única chamada de extração. Com `LLM_PROVIDER=ollama`, a interface de lote percorre os documentos sequencialmente.
+Com `LLM_PROVIDER=openai`, o serviço pode usar extração síncrona pela Responses API ou submissão offline pela OpenAI Batch API. No modo Batch API, cada parte do documento vira uma linha JSONL com `custom_id`, e o resultado é importado depois do status `completed`. Com `LLM_PROVIDER=ollama`, a interface de lote percorre os documentos sequencialmente no servidor local.
 
 Código principal:
 

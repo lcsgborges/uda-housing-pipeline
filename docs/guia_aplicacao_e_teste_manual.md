@@ -29,7 +29,7 @@ A stack principal:
 - `app/modules/companies`: cadastro de empresas e URL de RI.
 - `app/modules/ingestion`: scraping de links PDF, download, hash, deduplicação e orquestração de ingestão.
 - `app/modules/classification`: filtro semântico pré-extração.
-- `app/modules/extraction`: parsing do PDF, estratégia full-scan/chunking e extração via LLM.
+- `app/modules/extraction`: parsing do PDF, estratégia full scan/varredura sequencial e extração via LLM.
 - `app/modules/documents`: catálogo de documentos processados.
 - `app/modules/metrics`: métricas extraídas e endpoint de conjuntura.
 - `app/modules/insights`: fatos documentais qualitativos extraídos.
@@ -69,10 +69,11 @@ Para documentos classificados como úteis:
 1. PDF é convertido para texto por página;
 2. estratégia adaptativa de contexto:
    - documento curto: `full_scan`;
-   - documento longo: `chunking` com limite de contexto;
-3. LLM extrai métricas em JSON estruturado;
-4. payload é validado por contrato semântico (tipos, campos, confiança, `null` para ausentes);
-5. métricas e insights são gravados no banco.
+   - documento longo: `sequential_scan` com todas as partes do texto;
+3. LLM extrai métricas e insights em JSON estruturado para cada parte;
+4. respostas das partes são consolidadas e deduplicadas;
+5. payload é validado por contrato semântico (tipos, campos, confiança, `null` para ausentes);
+6. métricas e insights são gravados no banco.
 
 ### 3.5 Linhagem
 
@@ -112,7 +113,7 @@ cp .env.example .env
 - `POSTGRES_USER=uda`
 - `POSTGRES_PASSWORD=uda`
 - `LLM_PROVIDER=ollama` + `OLLAMA_BASE_URL` + `OLLAMA_MODEL` (extração local)
-- `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (extração remota em lote)
+- `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (extração remota)
 - `OPENAI_MODEL=gpt-4.1-mini`
 - `OPENAI_CLASSIFICATION_MODEL=gpt-4.1-mini`
 - `OLLAMA_CLASSIFICATION_MODEL=llama3.1`
@@ -122,7 +123,7 @@ cp .env.example .env
 - `STORAGE_BACKEND=local` ou `rustfs`
 - `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_BUCKET`
 - `COMPOSE_RUSTFS_ENDPOINT=rustfs:9000` para a API acessar RustFS dentro do Compose
-- `EXTRACTION_BATCH_SIZE=5`
+- `EXTRACTION_BATCH_SIZE=1`
 - `CLASSIFICATION_BATCH_SIZE=5`
 
 ## 5) Como subir com Docker Compose
@@ -298,7 +299,20 @@ Com isso, o job roda automaticamente no horário definido por:
 - `SCHEDULER_TIMEZONE`
 
 O ciclo diário primeiro baixa documentos novos, depois classifica pendências em lotes de
-`CLASSIFICATION_BATCH_SIZE` e extrai documentos úteis em lotes de `EXTRACTION_BATCH_SIZE`.
+`CLASSIFICATION_BATCH_SIZE` e extrai documentos úteis em rodadas de `EXTRACTION_BATCH_SIZE`.
+Como documentos longos são varridos por várias partes, `EXTRACTION_BATCH_SIZE=1` é o padrão
+mais prudente para controlar custo de LLM.
+
+Com `LLM_PROVIDER=openai`, prefira a OpenAI Batch API para grandes volumes:
+
+```bash
+curl -X POST "http://localhost:8000/api/ingestion/openai-batch/submit?batch_size=1"
+curl "http://localhost:8000/api/ingestion/openai-batch/{batch_id}"
+curl -X POST "http://localhost:8000/api/ingestion/openai-batch/{batch_id}/import"
+```
+
+O primeiro comando submete o JSONL assíncrono; o segundo consulta status; o terceiro importa
+o `output_file_id` quando o batch estiver `completed`.
 
 ## 9) Testes automatizados
 

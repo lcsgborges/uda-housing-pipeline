@@ -93,6 +93,7 @@ def test_infer_period(url, title, expected):
         ("Previa Operacional", "previa_operacional"),
         ("Resultado Trimestral", "resultado_trimestral"),
         ("Earnings Release 1T26", "resultado_trimestral"),
+        ("ITR/DFP 1T26", "resultado_trimestral"),
         ("Relatório de Sustentabilidade", "relatorio_sustentabilidade"),
         ("ESG", "relatorio_sustentabilidade"),
         ("Comunicado ao mercado", "outro"),

@@ -26,7 +26,7 @@ detectados e estratégia sugerida.
 
 ## `app/modules/extraction`
 
-Parsing de PDFs, chunking, prompt, cliente LLM e persistência de métricas,
+Parsing de PDFs, segmentação sequencial, prompt, cliente LLM e persistência de métricas,
 insights e linhagem.
 
 ## `app/modules/documents`

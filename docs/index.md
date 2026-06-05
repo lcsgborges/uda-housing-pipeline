@@ -17,7 +17,7 @@ O projeto transforma PDFs de Relações com Investidores, relatórios de sustent
 - Baixa PDFs, calcula hash e evita reprocessamento de duplicados.
 - Extrai texto dos PDFs com PyMuPDF.
 - Classifica documentos como úteis, irrelevantes ou dependentes de OCR.
-- Seleciona contexto por full scan ou chunking semântico.
+- Seleciona contexto por full scan ou varredura sequencial completa.
 - Envia contexto para LLM via Ollama local ou OpenAI Structured Outputs.
 - Valida a resposta com Pydantic.
 - Normaliza métricas por vocabulário controlado.
@@ -42,6 +42,9 @@ O projeto transforma PDFs de Relações com Investidores, relatórios de sustent
 | `POST /api/ingestion/run` | Executa descoberta, download, classificação e extração. |
 | `POST /api/ingestion/classify-batch` | Classifica documentos baixados. |
 | `POST /api/ingestion/extract-batch` | Processa documentos pendentes em lote. |
+| `POST /api/ingestion/openai-batch/submit` | Submete extração offline pela OpenAI Batch API. |
+| `GET /api/ingestion/openai-batch/{batch_id}` | Consulta status do batch OpenAI. |
+| `POST /api/ingestion/openai-batch/{batch_id}/import` | Importa resultados do batch OpenAI concluído. |
 | `GET /api/documents` | Lista documentos coletados. |
 | `GET /api/metrics` | Lista métricas extraídas em visão bruta. |
 | `GET /api/insights` | Lista fatos, metas, riscos e ações documentais. |

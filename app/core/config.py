@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     ollama_model: str = "llama3.1"
     ollama_classification_model: str = "llama3.1"
     extraction_prompt_version: str = "v1"
-    extraction_batch_size: int = Field(default=5, ge=1, le=50)
+    extraction_batch_size: int = Field(default=1, ge=1, le=50)
     classification_batch_size: int = Field(default=5, ge=1, le=50)
 
     request_timeout_seconds: int = Field(default=20, ge=3)
@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     classification_sample_pages: int = Field(default=3, ge=1, le=10)
     extraction_full_scan_max_chars: int = Field(default=14000, ge=2000)
     extraction_context_max_chars: int = Field(default=18000, ge=4000)
+    extraction_llm_batch_max_chars: int = Field(default=60000, ge=4000)
+    openai_batch_completion_window: str = "24h"
 
 
 @lru_cache(maxsize=1)

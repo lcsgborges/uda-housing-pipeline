@@ -14,7 +14,7 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 - idempotência por hash SHA-256;
 - parsing de PDF com PyMuPDF;
 - classificação pré-extração para ignorar documentos irrelevantes ou marcar PDFs que precisam de OCR;
-- seleção de contexto por full scan ou chunking semântico;
+- seleção de contexto por full scan ou varredura sequencial completa;
 - extração estruturada de métricas e insights via Ollama local ou OpenAI Responses API em lote;
 - validação de saída com Pydantic;
 - normalização por catálogo canônico de métricas;
@@ -44,7 +44,7 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 
 ![Pipeline UDA — Fluxo](docs/assets/pipeline.png)
 
-> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), classificação, extração (PDF parser, chunking, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
+> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), classificação, extração (PDF parser, segmentação sequencial, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
 
 Módulos principais:
 
@@ -54,7 +54,7 @@ Módulos principais:
 | `app/modules/companies` | Cadastro de empresas e fontes RI. |
 | `app/modules/ingestion` | Scraping, download, hash, idempotência e scheduler diário. |
 | `app/modules/classification` | Classificação de documentos úteis, irrelevantes ou dependentes de OCR. |
-| `app/modules/extraction` | Parsing, chunking, cliente LLM e persistência de métricas e insights. |
+| `app/modules/extraction` | Parsing, segmentação, cliente LLM e persistência de métricas e insights. |
 | `app/modules/documents` | Catálogo e status de documentos. |
 | `app/modules/metrics` | Métricas, catálogo canônico e endpoint de conjuntura. |
 | `app/modules/insights` | Consulta de fatos documentais extraídos sem valor numérico obrigatório. |
@@ -106,14 +106,14 @@ Variáveis mais importantes:
 | --- | --- |
 | `DATABASE_URL` | URL SQLAlchemy async do PostgreSQL. |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Credenciais do PostgreSQL no Compose. |
-| `LLM_PROVIDER` | `ollama` para execução local ou `openai` para extração remota em lote. |
+| `LLM_PROVIDER` | `ollama` para execução local ou `openai` para extração remota. |
 | `OPENAI_API_KEY` | Chave da OpenAI quando `LLM_PROVIDER=openai`. |
 | `OPENAI_MODEL` | Modelo usado pelo cliente OpenAI. |
 | `OPENAI_CLASSIFICATION_MODEL` | Modelo usado na classificação com OpenAI. |
 | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Endpoint e modelo usados quando `LLM_PROVIDER=ollama`. |
 | `OLLAMA_CLASSIFICATION_MODEL` | Modelo usado na classificação com Ollama. |
 | `CLASSIFICATION_BATCH_SIZE` | Tamanho padrão dos lotes de classificação. |
-| `EXTRACTION_BATCH_SIZE` | Tamanho padrão dos lotes de extração. |
+| `EXTRACTION_BATCH_SIZE` | Quantos documentos úteis a extração seleciona por rodada; padrão recomendado `1`. |
 | `ENABLE_INGESTION_SCHEDULER` | Habilita o ciclo diário junto da API. |
 | `INGESTION_SCHEDULE_HOUR`, `INGESTION_SCHEDULE_MINUTE` | Horário diário do ciclo; padrão `02:00`. |
 | `SCHEDULER_TIMEZONE` | Timezone do scheduler; padrão `America/Sao_Paulo`. |
@@ -141,10 +141,23 @@ OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
 ```
 
-Quando `LLM_PROVIDER=openai`, documentos pendentes são agrupados por
-`EXTRACTION_BATCH_SIZE` para reduzir overhead de prompt e chamadas. Quando
-`LLM_PROVIDER=ollama`, a extração é local e cada documento do lote é processado
-sequencialmente.
+Na extração, `EXTRACTION_BATCH_SIZE` controla quantos documentos pendentes são
+selecionados do banco por rodada. A LLM recebe payloads menores: documento inteiro
+quando couber em `EXTRACTION_FULL_SCAN_MAX_CHARS`, ou partes sequenciais de até
+`EXTRACTION_CONTEXT_MAX_CHARS` quando o PDF for longo. Para controlar custo com
+OpenAI, mantenha `EXTRACTION_BATCH_SIZE=1`.
+
+Para usar o desconto da OpenAI Batch API, use o fluxo assíncrono:
+
+```bash
+curl -X POST "http://localhost:8000/api/ingestion/openai-batch/submit?batch_size=1"
+curl "http://localhost:8000/api/ingestion/openai-batch/{batch_id}"
+curl -X POST "http://localhost:8000/api/ingestion/openai-batch/{batch_id}/import"
+```
+
+O `submit` cria um arquivo JSONL com uma request `/v1/responses` por parte de documento,
+faz upload com `purpose=batch` e cria o batch com janela `24h`. O `import` deve ser usado
+somente quando o status estiver `completed`.
 
 ## Docker Compose
 
@@ -236,6 +249,9 @@ uv run python -m app.modules.ingestion.scheduler
 | `POST /api/ingestion/run/{company_id}` | Rodar ciclo por empresa. |
 | `POST /api/ingestion/classify-batch` | Classificar um lote de documentos baixados. |
 | `POST /api/ingestion/extract-batch` | Extrair um lote de documentos pendentes. |
+| `POST /api/ingestion/openai-batch/submit` | Submeter extração offline na OpenAI Batch API. |
+| `GET /api/ingestion/openai-batch/{batch_id}` | Consultar status do batch OpenAI. |
+| `POST /api/ingestion/openai-batch/{batch_id}/import` | Baixar e persistir resultado do batch OpenAI. |
 | `GET /api/documents` | Listar documentos. |
 | `GET /api/metrics` | Listar métricas brutas. |
 | `GET /api/insights` | Listar insights documentais extraídos. |

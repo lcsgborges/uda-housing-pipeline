@@ -24,12 +24,12 @@ Documentos úteis seguem como `classified_useful`. Documentos sem dados úteis v
 O parser usa `PyMuPDF` para abrir o PDF e extrair texto por blocos ordenados:
 
 - arquivos curtos seguem em modo `full_scan`;
-- arquivos longos seguem em modo `semantic_chunking`;
-- o texto é dividido por seções/títulos, blocos e limite de caracteres;
-- os chunks recebem metadados de página, título/section heading, tags semânticas e score de relevância;
-- a seleção de chunks prioriza trechos com sinais operacionais, financeiros, temporais e tabulares.
+- arquivos longos seguem em modo `sequential_scan`;
+- o texto é dividido em partes sequenciais com metadados de página e limite de caracteres;
+- todas as partes do documento longo são enviadas à LLM em chamadas menores;
+- as respostas das partes são consolidadas e deduplicadas antes da persistência.
 
-O objetivo do chunking é reduzir custo e latência do LLM. Ele não extrai métricas por conta própria.
+O objetivo da segmentação é controlar custo e latência sem deixar páginas fora da análise. Ela não extrai métricas por conta própria.
 
 Arquivos principais:
 
@@ -42,7 +42,7 @@ Arquivos principais:
 A pilha escolhida é solução nativa:
 
 - `PyMuPDF` para parsing;
-- motor próprio de chunking semântico;
+- segmentação sequencial para varrer documentos longos;
 - Ollama local ou OpenAI Responses API para classificação e extração;
 - `Pydantic` como contrato de saída estruturada.
 
