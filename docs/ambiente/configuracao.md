@@ -56,6 +56,16 @@ OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.1
 ```
 
+Quando a API roda via Docker Compose e o Ollama roda na máquina host, use:
+
+```env
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+```
+
+Dentro do container, `localhost` é o próprio container da API, não a máquina host.
+Em Linux, se o Ollama estiver ouvindo apenas em `127.0.0.1`, suba o servidor com
+`OLLAMA_HOST=0.0.0.0:11434 ollama serve`.
+
 ### OpenAI em Lote
 
 ```env

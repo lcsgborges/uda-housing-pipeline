@@ -36,9 +36,11 @@ Configuração:
 
 ```env
 LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_BASE_URL=http://host.docker.internal:11434
 OLLAMA_MODEL=llama3.1
 ```
+
+Em execução sem Docker, use `OLLAMA_BASE_URL=http://localhost:11434`.
 
 ## Contrato Semântico
 

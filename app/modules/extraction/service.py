@@ -112,6 +112,7 @@ class ExtractionService:
 
         processed = 0
         failed = 0
+        processed_refs: set[str] = set()
         try:
             extracted_batch = self.llm.extract_metrics_batch(payloads)
             returned_by_ref = {item.document_ref: item for item in extracted_batch.documents}
@@ -147,13 +148,16 @@ class ExtractionService:
                     metrics=metrics,
                 )
                 processed += 1
+                processed_refs.add(ref)
             await self.session.commit()
         except Exception as exc:
-            for doc, _ in by_ref.values():
+            for ref, (doc, _) in by_ref.items():
+                if ref in processed_refs:
+                    continue
                 _mark_document_failed(doc, str(exc))
                 self.session.add(doc)
+                failed += 1
             await self.session.commit()
-            raise
         return {"selected": len(docs), "processed": processed, "failed": failed}
 
     async def process_all_pending_documents(self, batch_size: int | None = None) -> dict:

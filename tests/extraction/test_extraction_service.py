@@ -352,10 +352,10 @@ async def test_process_pending_documents_batch_marca_failed_quando_llm_falha(db_
     service.parser = _FakeParser()
     service.llm = _BatchLLM(fail=True)
 
-    with pytest.raises(RuntimeError):
-        await service.process_pending_documents_batch(batch_size=1)
-
+    result = await service.process_pending_documents_batch(batch_size=1)
     await db_session.refresh(document)
+
+    assert result == {"selected": 1, "processed": 0, "failed": 1}
     assert document.status == DocumentStatus.failed
     assert document.error_message == "falha llm"
 

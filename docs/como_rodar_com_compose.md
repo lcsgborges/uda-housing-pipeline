@@ -23,9 +23,15 @@ Para usar Ollama local, mantenha ou ajuste:
 
 ```bash
 LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_BASE_URL=http://host.docker.internal:11434
 OLLAMA_MODEL=llama3.1
 ```
+
+> Em execução fora do Docker, use `OLLAMA_BASE_URL=http://localhost:11434`.
+> Dentro do Compose, `localhost` aponta para o container da API; para acessar o Ollama
+> instalado na máquina host, use `host.docker.internal`.
+> Se ainda houver `Connection refused` no Linux, inicie o Ollama no host com
+> `OLLAMA_HOST=0.0.0.0:11434 ollama serve`.
 
 Para usar OpenAI, preencha:
 

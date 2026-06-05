@@ -118,9 +118,12 @@ Para extração local sem custo de API externa:
 
 ```env
 LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_BASE_URL=http://host.docker.internal:11434
 OLLAMA_MODEL=llama3.1
 ```
+
+Use `OLLAMA_BASE_URL=http://localhost:11434` apenas quando a API estiver rodando fora
+do Docker. Dentro do Compose, `localhost` aponta para o container da API.
 
 Para extração com OpenAI:
 
