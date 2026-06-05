@@ -41,6 +41,7 @@ Variáveis principais:
 | `STORAGE_BACKEND` | `local` ou `rustfs`. |
 | `DOCUMENTS_DIR` | Diretório para storage local. |
 | `RUSTFS_*` | Configuração do storage S3 compatível. |
+| `COMPOSE_RUSTFS_ENDPOINT` | Endpoint interno do RustFS para a API dentro do Docker Compose. |
 | `CLASSIFICATION_BATCH_SIZE` | Tamanho padrão dos lotes de classificação. |
 | `EXTRACTION_BATCH_SIZE` | Tamanho padrão de lote. |
 | `CLASSIFICATION_CONTEXT_MAX_CHARS` | Tamanho máximo da amostra enviada ao classificador. |
@@ -71,6 +72,14 @@ OLLAMA_BASE_URL=http://host.docker.internal:11434
 Dentro do container, `localhost` é o próprio container da API, não a máquina host.
 Em Linux, se o Ollama estiver ouvindo apenas em `127.0.0.1`, suba o servidor com
 `OLLAMA_HOST=0.0.0.0:11434 ollama serve`.
+
+## RustFS no Docker Compose
+
+Para execução local fora do Docker, `RUSTFS_ENDPOINT=localhost:9000` aponta para a
+porta publicada na máquina. Dentro do Docker Compose, o container da API precisa
+falar com o serviço `rustfs` pela rede interna; por isso o Compose usa
+`COMPOSE_RUSTFS_ENDPOINT=rustfs:9000` e injeta esse valor como `RUSTFS_ENDPOINT`
+no container.
 
 ### OpenAI em Lote
 

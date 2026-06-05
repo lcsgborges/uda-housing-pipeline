@@ -121,6 +121,7 @@ cp .env.example .env
 - `SCHEDULER_TIMEZONE=America/Sao_Paulo`
 - `STORAGE_BACKEND=local` ou `rustfs`
 - `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_BUCKET`
+- `COMPOSE_RUSTFS_ENDPOINT=rustfs:9000` para a API acessar RustFS dentro do Compose
 - `EXTRACTION_BATCH_SIZE=5`
 - `CLASSIFICATION_BATCH_SIZE=5`
 

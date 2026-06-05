@@ -118,7 +118,8 @@ Variáveis mais importantes:
 | `INGESTION_SCHEDULE_HOUR`, `INGESTION_SCHEDULE_MINUTE` | Horário diário do ciclo; padrão `02:00`. |
 | `SCHEDULER_TIMEZONE` | Timezone do scheduler; padrão `America/Sao_Paulo`. |
 | `STORAGE_BACKEND` | `local` ou `rustfs`. |
-| `RUSTFS_*` | Configurações do RustFS. |
+| `RUSTFS_*` | Configurações do RustFS para execução local. |
+| `COMPOSE_RUSTFS_ENDPOINT` | Endpoint interno do RustFS usado pela API no Compose; padrão `rustfs:9000`. |
 | `API_PORT`, `POSTGRES_PORT` | Portas publicadas pelo Compose. |
 
 Para extração local sem custo de API externa:

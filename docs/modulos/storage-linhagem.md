@@ -18,6 +18,8 @@ DOCUMENTS_DIR=./data/documents
 
 ### RustFS
 
+Para rodar a API fora do Docker e acessar o RustFS publicado na máquina:
+
 ```env
 STORAGE_BACKEND=rustfs
 RUSTFS_ENDPOINT=localhost:9000
@@ -26,6 +28,14 @@ RUSTFS_SECRET_KEY=rustfsadmin
 RUSTFS_BUCKET=uda-documents
 RUSTFS_SECURE=false
 ```
+
+No Docker Compose, o container da API precisa usar o nome do serviço na rede interna:
+
+```env
+COMPOSE_RUSTFS_ENDPOINT=rustfs:9000
+```
+
+O `compose.yml` injeta esse valor no container como `RUSTFS_ENDPOINT`.
 
 ## Linhagem
 

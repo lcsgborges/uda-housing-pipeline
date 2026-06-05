@@ -57,6 +57,17 @@ RUSTFS_API_PORT=9000
 RUSTFS_CONSOLE_PORT=9001
 ```
 
+Para RustFS, mantenha:
+
+```env
+RUSTFS_ENDPOINT=localhost:9000
+COMPOSE_RUSTFS_ENDPOINT=rustfs:9000
+```
+
+`RUSTFS_ENDPOINT` atende execuções fora do Docker. `COMPOSE_RUSTFS_ENDPOINT` é o
+nome do serviço usado pela API dentro do Compose. Usar `localhost:9000` dentro do
+container faz a API tentar conectar nela mesma e causa `Connection refused`.
+
 ## 2. Subir a stack
 
 ```bash
