@@ -11,17 +11,21 @@ from app.modules.documents.models import Document, DocumentStatus
 
 class _FakeParser:
     def __init__(self, pages_text=None):
+        """Inicializa parser fake com páginas textuais controladas."""
         self.pages_text = pages_text or [
             "MRV divulga receita líquida de R$ 100 milhões e emissões de 10 tCO2e."
         ]
 
     def parse(self, path):
+        """Simula parsing de arquivo local."""
         return self._parsed()
 
     def parse_bytes(self, content):
+        """Simula parsing de bytes lidos do storage."""
         return self._parsed()
 
     def _parsed(self):
+        """Monta objeto parseado compatível com o serviço."""
         return SimpleNamespace(
             pages_text=self.pages_text,
             full_text="\n\n".join(self.pages_text),
@@ -31,15 +35,18 @@ class _FakeParser:
 
 class _FakeLLM:
     def __init__(self, classification):
+        """Inicializa cliente LLM fake com classificação fixa."""
         self.classification = classification
         self.calls = []
 
     def classify_document(self, **kwargs):
+        """Registra argumentos e devolve a classificação configurada."""
         self.calls.append(kwargs)
         return self.classification
 
 
 async def _create_company_and_document(db_session, *, title="Resultado 1T26"):
+    """Cria empresa e documento baixado para testes de classificação."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
     db_session.add(company)
     await db_session.commit()
@@ -65,6 +72,7 @@ async def _create_company_and_document(db_session, *, title="Resultado 1T26"):
 
 @pytest.mark.asyncio
 async def test_classifica_documento_util_e_persiste_metadados(db_session):
+    """Valida classificação útil e persistência dos metadados no documento."""
     company, document = await _create_company_and_document(db_session)
     classification = DocumentClassification(
         is_useful=True,
@@ -99,6 +107,7 @@ async def test_classifica_documento_util_e_persiste_metadados(db_session):
 
 @pytest.mark.asyncio
 async def test_classifica_documento_irrelevante_como_ignored(db_session):
+    """Garante que documento irrelevante recebe status ignored_not_relevant."""
     company, document = await _create_company_and_document(db_session, title="Comunicado")
     classification = DocumentClassification(
         is_useful=False,
@@ -129,6 +138,7 @@ async def test_classifica_documento_irrelevante_como_ignored(db_session):
 
 @pytest.mark.asyncio
 async def test_classificacao_detecta_pdf_sem_texto_como_needs_ocr(db_session):
+    """Garante detecção determinística de PDF sem texto extraível."""
     company, document = await _create_company_and_document(db_session)
     service = ClassificationService(db_session)
     service.parser = _FakeParser(["", "", ""])
@@ -154,6 +164,7 @@ async def test_classificacao_detecta_pdf_sem_texto_como_needs_ocr(db_session):
 
 @pytest.mark.asyncio
 async def test_process_pending_documents_batch_contabiliza_resultados(db_session):
+    """Valida contadores do lote de classificação de documentos pendentes."""
     company, first = await _create_company_and_document(db_session)
     second = Document(
         company_id=company.id,

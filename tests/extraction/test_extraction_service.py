@@ -21,32 +21,38 @@ from app.modules.metrics.schemas import ExtractedBatchResponse
 
 class _FakeParser:
     def __init__(self, pages_text=None):
+        """Inicializa parser fake com páginas e registros de chamadas."""
         self.pages_text = pages_text or ["Vendas liquidas R$ 100 milhoes"]
         self.parsed_paths = []
         self.parsed_bytes = []
 
     def parse(self, path):
+        """Registra parsing por caminho local."""
         self.parsed_paths.append(path)
         return SimpleNamespace(pages_text=self.pages_text)
 
     def parse_bytes(self, content):
+        """Registra parsing por bytes de storage."""
         self.parsed_bytes.append(content)
         return SimpleNamespace(pages_text=self.pages_text)
 
 
 class _FakeStorage:
     def read(self, uri):
+        """Retorna bytes fixos para URIs de storage."""
         return b"%PDF test"
 
 
 class _BatchLLM:
     def __init__(self, returned_refs=None, fail=False, single_fail=False):
+        """Inicializa LLM fake com refs retornadas e falhas opcionais."""
         self.returned_refs = returned_refs
         self.fail = fail
         self.single_fail = single_fail
         self.payloads = []
 
     def _metric_payload(self):
+        """Monta payload de métrica válido para respostas fake."""
         return {
             "company": "MRV",
             "period_year": 2025,
@@ -65,6 +71,7 @@ class _BatchLLM:
         }
 
     def extract_metrics(self, **kwargs):
+        """Simula extração individual usada em retry."""
         if self.single_fail:
             raise RuntimeError("falha retry individual")
         return SimpleNamespace(
@@ -75,6 +82,7 @@ class _BatchLLM:
         )
 
     def extract_metrics_batch(self, payloads):
+        """Simula extração em lote com refs controladas."""
         self.payloads.append(payloads)
         if self.fail:
             raise RuntimeError("falha llm")
@@ -96,17 +104,21 @@ class _BatchLLM:
 
 class _EmptyBatchLLM:
     def extract_metrics(self, **kwargs):
+        """Retorna extração individual vazia."""
         return SimpleNamespace(metrics=[], insights=[])
 
     def extract_metrics_batch(self, payloads):
+        """Retorna lote sem documentos."""
         return ExtractedBatchResponse.model_validate({"documents": []})
 
 
 class _EmptyMetricsBatchLLM:
     def extract_metrics(self, **kwargs):
+        """Retorna retry individual sem dados."""
         return SimpleNamespace(metrics=[], insights=[])
 
     def extract_metrics_batch(self, payloads):
+        """Retorna documentos do lote sem métricas."""
         return ExtractedBatchResponse.model_validate(
             {
                 "documents": [
@@ -122,9 +134,11 @@ class _EmptyMetricsBatchLLM:
 
 class _AliasMetricLLM:
     def extract_metrics(self, **kwargs):
+        """Retorna extração individual vazia para manter foco no batch."""
         return SimpleNamespace(metrics=[], insights=[])
 
     def extract_metrics_batch(self, payloads):
+        """Retorna métrica por alias para validar normalização."""
         return ExtractedBatchResponse.model_validate(
             {
                 "documents": [
@@ -153,9 +167,11 @@ class _AliasMetricLLM:
 
 class _InsightLLM:
     def extract_metrics(self, **kwargs):
+        """Retorna extração individual vazia para manter foco no batch."""
         return SimpleNamespace(metrics=[], insights=[])
 
     def extract_metrics_batch(self, payloads):
+        """Retorna métricas e insights para validar persistência mista."""
         return ExtractedBatchResponse.model_validate(
             {
                 "documents": [
@@ -212,6 +228,7 @@ class _InsightLLM:
 
 
 async def _create_company_and_document(db_session, *, status=DocumentStatus.classified_useful):
+    """Cria empresa e documento para testes do serviço de extração."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
     db_session.add(company)
     await db_session.commit()
@@ -237,6 +254,7 @@ async def _create_company_and_document(db_session, *, status=DocumentStatus.clas
 
 @pytest.mark.asyncio
 async def test_process_document_persiste_metricas_e_linhagem(db_session):
+    """Valida persistência de métrica, linhagem e status processado."""
     company, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
@@ -257,6 +275,7 @@ async def test_process_document_persiste_metricas_e_linhagem(db_session):
 
 @pytest.mark.asyncio
 async def test_process_document_normaliza_alias_e_enriquece_metadados(db_session):
+    """Garante normalização de alias e enriquecimento por catálogo."""
     company, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
@@ -274,6 +293,7 @@ async def test_process_document_normaliza_alias_e_enriquece_metadados(db_session
 
 @pytest.mark.asyncio
 async def test_process_document_persiste_insights_e_contexto_da_metrica(db_session):
+    """Valida persistência de insights e campos contextuais da métrica."""
     company, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
@@ -299,6 +319,7 @@ async def test_process_document_persiste_insights_e_contexto_da_metrica(db_sessi
 
 @pytest.mark.asyncio
 async def test_process_document_rejeita_extracao_sem_metricas(db_session):
+    """Garante falha quando extração não retorna métricas nem insights."""
     company, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
@@ -314,6 +335,7 @@ async def test_process_document_rejeita_extracao_sem_metricas(db_session):
 
 @pytest.mark.asyncio
 async def test_process_pending_documents_batch_sem_documentos(db_session):
+    """Valida retorno vazio quando não há documentos úteis pendentes."""
     service = ExtractionService(db_session)
 
     assert await service.process_pending_documents_batch() == {
@@ -325,6 +347,7 @@ async def test_process_pending_documents_batch_sem_documentos(db_session):
 
 @pytest.mark.asyncio
 async def test_process_all_pending_documents_agrega_lotes(db_session, monkeypatch):
+    """Garante agregação de totais ao processar todos os lotes pendentes."""
     service = ExtractionService(db_session)
     results = [
         {"selected": 2, "processed": 2, "failed": 0},
@@ -333,6 +356,7 @@ async def test_process_all_pending_documents_agrega_lotes(db_session, monkeypatc
     ]
 
     async def fake_process_pending_documents_batch(batch_size=None):
+        """Retorna lotes fake em sequência para testar agregação."""
         assert batch_size == 3
         return results.pop(0)
 
@@ -352,6 +376,7 @@ async def test_process_all_pending_documents_agrega_lotes(db_session, monkeypatc
 
 @pytest.mark.asyncio
 async def test_process_pending_documents_batch_reprocessa_doc_nao_retornado(db_session):
+    """Garante retry individual para documento ausente na resposta batch."""
     company, first = await _create_company_and_document(db_session)
     second = Document(
         company_id=company.id,
@@ -387,6 +412,7 @@ async def test_process_pending_documents_batch_reprocessa_doc_nao_retornado(db_s
 async def test_process_pending_documents_batch_marca_nao_retornado_failed_se_retry_falha(
     db_session,
 ):
+    """Garante falha quando documento ausente no batch também falha no retry."""
     company, first = await _create_company_and_document(db_session)
     second = Document(
         company_id=company.id,
@@ -420,6 +446,7 @@ async def test_process_pending_documents_batch_marca_nao_retornado_failed_se_ret
 
 @pytest.mark.asyncio
 async def test_process_pending_documents_batch_marca_failed_quando_sem_metricas(db_session):
+    """Garante status failed quando lote retorna documento sem dados."""
     _, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
@@ -437,6 +464,7 @@ async def test_process_pending_documents_batch_marca_failed_quando_sem_metricas(
 
 @pytest.mark.asyncio
 async def test_process_pending_documents_batch_marca_failed_quando_llm_falha(db_session):
+    """Garante status failed quando a chamada batch da LLM falha."""
     _, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
     service.parser = _FakeParser()
@@ -451,6 +479,7 @@ async def test_process_pending_documents_batch_marca_failed_quando_llm_falha(db_
 
 
 def test_build_context_full_scan_e_chunking(monkeypatch):
+    """Valida escolha entre contexto full scan e chunking semântico."""
     service = ExtractionService(None)
     full_scan = service._build_context(["Texto curto"])
 
@@ -466,6 +495,7 @@ def test_build_context_full_scan_e_chunking(monkeypatch):
 
 
 def test_parse_document_lida_com_path_storage_uri_e_sem_path():
+    """Cobre parsing por path local, storage URI e ausência de caminho."""
     service = ExtractionService(None)
     service.parser = _FakeParser()
     service.storage = _FakeStorage()
@@ -483,6 +513,7 @@ def test_parse_document_lida_com_path_storage_uri_e_sem_path():
 
 
 def test_format_chunk_e_storage_uri_helpers():
+    """Valida formatação de chunk e detecção de URI de storage."""
     chunk = SimpleNamespace(
         page=2,
         ordinal=4,
@@ -501,6 +532,7 @@ def test_format_chunk_e_storage_uri_helpers():
 
 
 def test_normalize_unit_and_currency_aplica_defaults_quando_sem_moeda():
+    """Garante aplicação de defaults de unidade e moeda."""
     unit, currency = _normalize_unit_and_currency(
         unit=None,
         currency=None,
@@ -519,6 +551,7 @@ def test_normalize_unit_and_currency_aplica_defaults_quando_sem_moeda():
 
 
 def test_extraction_model_name_resolve_provider():
+    """Valida resolução do nome de modelo usado na linhagem."""
     assert (
         _extraction_model_name(
             SimpleNamespace(llm_provider="openai", openai_model="gpt", ollama_model="llama")

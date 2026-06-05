@@ -8,31 +8,38 @@ from app.modules.ingestion.scraper import RIScraper
 
 class _Response:
     def __init__(self, *, text: str = "", content: bytes = b""):
+        """Inicializa resposta HTTP fake com texto ou bytes."""
         self.text = text
         self.content = content
         self.raise_for_status_called = False
 
     def raise_for_status(self) -> None:
+        """Registra que a validação de status foi chamada."""
         self.raise_for_status_called = True
 
 
 class _FakeClient:
     def __init__(self, response: _Response):
+        """Inicializa cliente HTTP fake com resposta fixa."""
         self.response = response
         self.requests = []
 
     def __enter__(self):
+        """Entra no contexto do cliente fake."""
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """Sai do contexto sem suprimir exceções."""
         return None
 
     def get(self, url):
+        """Registra URL consultada e retorna resposta fixa."""
         self.requests.append(url)
         return self.response
 
 
 def test_ri_scraper_encontra_pdfs_e_prioriza_previa(monkeypatch):
+    """Valida descoberta de PDFs e priorização de prévia operacional."""
     html = """
     <html>
       <a href="/downloads/previa-3t25.pdf">Previa Operacional 3T25</a>
@@ -61,6 +68,7 @@ def test_ri_scraper_encontra_pdfs_e_prioriza_previa(monkeypatch):
 
 
 def test_pdf_downloader_baixa_conteudo(monkeypatch, tmp_path):
+    """Garante que downloader retorna bytes e valida status HTTP."""
     response = _Response(content=b"%PDF")
     fake_client = _FakeClient(response)
     monkeypatch.setattr(downloader_module.httpx, "Client", lambda **kwargs: fake_client)
@@ -84,4 +92,5 @@ def test_pdf_downloader_baixa_conteudo(monkeypatch, tmp_path):
     ],
 )
 def test_pdf_downloader_make_filename(url, expected):
+    """Valida geração de nome de arquivo a partir da URL."""
     assert PDFDownloader(timeout=3, user_agent="agent").make_filename(url) == expected

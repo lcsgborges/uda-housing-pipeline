@@ -17,14 +17,17 @@ from app.modules.metrics.schemas import ExtractedBatchResponse, ExtractedMetricB
 
 class _HTTPResponse:
     def __init__(self, payload, status_error=False):
+        """Inicializa resposta HTTP fake com payload e erro opcional."""
         self.payload = payload
         self.status_error = status_error
 
     def raise_for_status(self):
+        """Simula erro HTTP quando configurado."""
         if self.status_error:
             raise RuntimeError("erro http")
 
     def json(self):
+        """Retorna o payload JSON fake."""
         return self.payload
 
 
@@ -33,18 +36,22 @@ class _HTTPClient:
     instances = []
 
     def __init__(self, timeout):
+        """Inicializa cliente HTTP fake registrando timeout e requisições."""
         self.timeout = timeout
         self.requests = []
         _HTTPClient.instances.append(self)
         _HTTPClient.last_instance = self
 
     def __enter__(self):
+        """Entra no contexto do cliente HTTP fake."""
         return self
 
     def __exit__(self, exc_type, exc, tb):
+        """Sai do contexto sem suprimir exceções."""
         return None
 
     def post(self, url, json):
+        """Simula POST do Ollama retornando contratos estruturados."""
         self.requests.append((url, json))
         if json["format"]["title"] == "DocumentClassification":
             content = llm_client.DocumentClassification.model_validate(
@@ -79,6 +86,7 @@ class _HTTPClient:
 
 
 def test_ollama_llm_client_extrai_metricas_e_batch(monkeypatch):
+    """Valida classificação, extração e lote usando cliente Ollama fake."""
     _HTTPClient.instances = []
     monkeypatch.setattr(llm_client.httpx, "Client", _HTTPClient)
     client = OllamaLLMClient(
@@ -130,8 +138,10 @@ def test_ollama_llm_client_extrai_metricas_e_batch(monkeypatch):
 
 
 def test_ollama_llm_rejeita_resposta_sem_conteudo(monkeypatch):
+    """Garante erro quando Ollama não retorna conteúdo."""
     class EmptyHTTPClient(_HTTPClient):
         def post(self, url, json):
+            """Retorna mensagem vazia para acionar validação de conteúdo."""
             return _HTTPResponse({"message": {}})
 
     monkeypatch.setattr(llm_client.httpx, "Client", EmptyHTTPClient)
@@ -148,6 +158,7 @@ def test_ollama_llm_rejeita_resposta_sem_conteudo(monkeypatch):
 
 
 def test_build_llm_client_default_ollama(monkeypatch):
+    """Valida construção padrão do cliente Ollama por settings."""
     monkeypatch.setattr(
         llm_client,
         "get_settings",
@@ -164,6 +175,7 @@ def test_build_llm_client_default_ollama(monkeypatch):
 
 
 def test_build_llm_client_openai(monkeypatch):
+    """Valida construção do cliente OpenAI por settings."""
     sentinel = object()
 
     monkeypatch.setattr(
@@ -185,6 +197,7 @@ def test_build_llm_client_openai(monkeypatch):
 
 
 def test_build_llm_client_rejeita_provider_desconhecido(monkeypatch):
+    """Garante rejeição de provider de LLM desconhecido."""
     monkeypatch.setattr(
         llm_client,
         "get_settings",
@@ -196,11 +209,13 @@ def test_build_llm_client_rejeita_provider_desconhecido(monkeypatch):
 
 
 def test_openai_llm_exige_api_key():
+    """Garante que cliente OpenAI exige API key."""
     with pytest.raises(ValueError):
         OpenAILLMClient(api_key="", model="gpt")
 
 
 def test_base_llm_client_metodos_abstratos_rejeitam_uso_direto():
+    """Cobre métodos abstratos da interface base."""
     with pytest.raises(NotImplementedError):
         BaseLLMClient.classify_document(
             object(),
@@ -231,14 +246,17 @@ def test_base_llm_client_metodos_abstratos_rejeitam_uso_direto():
 
 class _ParsedResponse:
     def __init__(self, parsed):
+        """Inicializa resposta parseada fake."""
         self.output_parsed = parsed
 
 
 class _Responses:
     def __init__(self):
+        """Inicializa agregador fake de chamadas Responses API."""
         self.calls = []
 
     def parse(self, **kwargs):
+        """Simula Responses API devolvendo o modelo Pydantic solicitado."""
         self.calls.append(kwargs)
         text_format = kwargs["text_format"]
         if text_format is llm_client.DocumentClassification:
@@ -290,12 +308,14 @@ class _FakeOpenAI:
     last_instance = None
 
     def __init__(self, api_key):
+        """Inicializa cliente OpenAI fake e registra última instância."""
         self.api_key = api_key
         self.responses = _Responses()
         _FakeOpenAI.last_instance = self
 
 
 def test_openai_llm_usa_structured_outputs(monkeypatch):
+    """Valida uso de Structured Outputs para classificação, single e batch."""
     monkeypatch.setattr(llm_client, "OpenAI", _FakeOpenAI)
     client = OpenAILLMClient(
         api_key="sk-test",
@@ -346,12 +366,15 @@ def test_openai_llm_usa_structured_outputs(monkeypatch):
 
 
 def test_openai_llm_rejeita_resposta_sem_payload(monkeypatch):
+    """Garante erro quando OpenAI não retorna payload parseado."""
     class EmptyResponses:
         def parse(self, **kwargs):
+            """Retorna resposta sem objeto parseado."""
             return _ParsedResponse(None)
 
     class EmptyOpenAI:
         def __init__(self, api_key):
+            """Inicializa cliente fake com Responses API vazia."""
             self.responses = EmptyResponses()
 
     monkeypatch.setattr(llm_client, "OpenAI", EmptyOpenAI)
@@ -384,6 +407,7 @@ def test_openai_llm_rejeita_resposta_sem_payload(monkeypatch):
 
 
 def test_prompt_builders_incluem_contexto_e_document_ref():
+    """Valida que prompts incluem contexto, catálogo e document_ref."""
     classification_prompt = _build_classification_prompt(
         company="MRV",
         title="Resultado",

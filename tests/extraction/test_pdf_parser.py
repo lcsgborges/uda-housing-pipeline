@@ -4,6 +4,7 @@ from app.modules.extraction.pdf_parser import PDFParser, _extract_page_text
 
 
 def _make_pdf_bytes(text: str) -> bytes:
+    """Cria um PDF em memória com texto simples para testes."""
     doc = fitz.open()
     page = doc.new_page()
     page.insert_text((72, 72), text)
@@ -13,6 +14,7 @@ def _make_pdf_bytes(text: str) -> bytes:
 
 
 def test_pdf_parser_parse_file_e_bytes(tmp_path):
+    """Valida parsing de PDF por caminho e por bytes."""
     content = _make_pdf_bytes("Vendas liquidas R$ 100 milhoes")
     path = tmp_path / "doc.pdf"
     path.write_bytes(content)
@@ -29,11 +31,14 @@ def test_pdf_parser_parse_file_e_bytes(tmp_path):
 
 
 def test_extract_page_text_faz_fallback_para_texto_simples():
+    """Garante fallback para texto simples quando blocos estão vazios."""
     class Page:
         def __init__(self):
+            """Inicializa página fake registrando chamadas de extração."""
             self.calls = []
 
         def get_text(self, kind, sort=False):
+            """Simula extração por blocos vazia e texto simples disponível."""
             self.calls.append((kind, sort))
             if kind == "blocks":
                 return []

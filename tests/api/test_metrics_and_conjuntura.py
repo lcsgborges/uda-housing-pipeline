@@ -8,6 +8,7 @@ from app.modules.metrics.models import Metric
 
 @pytest.mark.asyncio
 async def test_consulta_metricas(client, db_session):
+    """Valida listagem, filtros, detalhe e camada Gold de conjuntura."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
     db_session.add(company)
     await db_session.commit()
@@ -107,6 +108,7 @@ async def test_consulta_metricas(client, db_session):
 
 @pytest.mark.asyncio
 async def test_consulta_empresa_ignora_acentos(client, db_session):
+    """Garante que filtros por empresa ignoram acentos e caixa."""
     company = Company(
         name="São José",
         ticker="SJOS3",
@@ -167,6 +169,7 @@ async def test_consulta_empresa_ignora_acentos(client, db_session):
 
 
 def test_consulta_empresa_inexistente_retorna_404(client):
+    """Garante HTTP 404 ao filtrar métricas por empresa inexistente."""
     response = client.get("/api/metrics", params={"empresa": "Nao Existe"})
 
     assert response.status_code == 404

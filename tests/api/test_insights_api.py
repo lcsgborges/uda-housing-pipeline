@@ -8,6 +8,7 @@ from app.modules.insights.models import DocumentInsight
 
 @pytest.mark.asyncio
 async def test_lista_insights_com_filtros(client, db_session):
+    """Valida filtros de listagem de insights e empresa inexistente."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
     db_session.add(company)
     await db_session.commit()

@@ -5,9 +5,9 @@ Revises:
 Create Date: 2026-05-27
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0001_initial"
 down_revision = None
@@ -16,6 +16,7 @@ depends_on = None
 
 
 def upgrade() -> None:
+    """Cria o schema inicial de empresas, documentos, métricas e linhagem."""
     op.create_table(
         "companies",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -44,7 +45,12 @@ def upgrade() -> None:
     op.create_table(
         "documents",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("company_id", sa.Integer(), sa.ForeignKey("companies.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "company_id",
+            sa.Integer(),
+            sa.ForeignKey("companies.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("title", sa.String(length=300), nullable=True),
         sa.Column("original_url", sa.String(length=700), nullable=False),
         sa.Column("local_path", sa.String(length=700), nullable=True),
@@ -63,8 +69,18 @@ def upgrade() -> None:
     op.create_table(
         "metrics",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("company_id", sa.Integer(), sa.ForeignKey("companies.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("document_id", sa.Integer(), sa.ForeignKey("documents.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "company_id",
+            sa.Integer(),
+            sa.ForeignKey("companies.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "document_id",
+            sa.Integer(),
+            sa.ForeignKey("documents.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("metric_name", sa.String(length=100), nullable=False),
         sa.Column("metric_category", sa.String(length=100), nullable=True),
         sa.Column("period_year", sa.Integer(), nullable=True),
@@ -85,8 +101,18 @@ def upgrade() -> None:
     op.create_table(
         "data_lineage",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("metric_id", sa.Integer(), sa.ForeignKey("metrics.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("document_id", sa.Integer(), sa.ForeignKey("documents.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "metric_id",
+            sa.Integer(),
+            sa.ForeignKey("metrics.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "document_id",
+            sa.Integer(),
+            sa.ForeignKey("documents.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("original_url", sa.String(length=700), nullable=False),
         sa.Column("file_hash", sa.String(length=64), nullable=False),
         sa.Column("source_page", sa.Integer(), nullable=True),
@@ -100,6 +126,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove o schema inicial na ordem inversa de dependências."""
     op.drop_index("ix_data_lineage_document_id", table_name="data_lineage")
     op.drop_index("ix_data_lineage_metric_id", table_name="data_lineage")
     op.drop_table("data_lineage")

@@ -2,6 +2,7 @@ from app.modules.extraction.chunking import SemanticChunker, _numeric_density
 
 
 def test_chunking_prioriza_palavras_chave():
+    """Garante que chunks com termos de métrica sejam priorizados."""
     chunker = SemanticChunker(max_chars=200)
     pages = [
         "Texto institucional.",
@@ -14,6 +15,7 @@ def test_chunking_prioriza_palavras_chave():
 
 
 def test_chunking_identifica_titulo_e_tags_semanticas():
+    """Valida detecção de heading, tags e score semântico."""
     chunker = SemanticChunker(max_chars=400)
     pages = [
         """
@@ -34,6 +36,7 @@ def test_chunking_identifica_titulo_e_tags_semanticas():
 
 
 def test_chunking_marca_pagina_metrica_visual_com_texto_curto():
+    """Garante tag especial para página curta rica em rótulos de métricas."""
     chunker = SemanticChunker(max_chars=400)
     pages = ["ROL\nVendas líquidas\nEBITDA\nMargem bruta\n"]
 
@@ -45,6 +48,7 @@ def test_chunking_marca_pagina_metrica_visual_com_texto_curto():
 
 
 def test_chunking_prioriza_indicadores_esg():
+    """Valida priorização de indicadores ambientais e ESG."""
     chunker = SemanticChunker(max_chars=500)
     pages = [
         "Texto institucional sobre cultura.",
@@ -64,6 +68,7 @@ def test_chunking_prioriza_indicadores_esg():
 
 
 def test_chunking_respeita_orcamento_de_contexto():
+    """Garante que a seleção respeita o limite total de caracteres."""
     chunker = SemanticChunker(max_chars=120)
     pages = [
         "\n\n".join(
@@ -83,6 +88,7 @@ def test_chunking_respeita_orcamento_de_contexto():
 
 
 def test_select_relevant_chunks_lida_com_lista_vazia_e_preserva_primeiro_relevante():
+    """Cobre lista vazia e preservação do primeiro chunk relevante."""
     chunker = SemanticChunker()
     chunks = chunker.build_chunks(
         [
@@ -98,6 +104,7 @@ def test_select_relevant_chunks_lida_com_lista_vazia_e_preserva_primeiro_relevan
 
 
 def test_select_relevant_chunks_default_top_k_aumentado():
+    """Valida top_k padrão maior e inclusão do primeiro chunk."""
     chunker = SemanticChunker()
     chunks = chunker.build_chunks(
         [
@@ -114,6 +121,7 @@ def test_select_relevant_chunks_default_top_k_aumentado():
 
 
 def test_split_semantic_blocks_cobre_paginas_vazias_e_titulos_sequenciais():
+    """Cobre divisão de blocos em páginas vazias e headings sequenciais."""
     chunker = SemanticChunker()
 
     assert chunker._split_page_into_semantic_blocks("") == []
@@ -126,6 +134,7 @@ def test_split_semantic_blocks_cobre_paginas_vazias_e_titulos_sequenciais():
 
 
 def test_heading_rejeita_linhas_longas_numericas_e_numeric_density_vazia():
+    """Valida rejeições de heading e densidade numérica em string vazia."""
     chunker = SemanticChunker()
 
     assert chunker._looks_like_heading("DESEMPENHO OPERACIONAL " * 12) is False

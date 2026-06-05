@@ -12,6 +12,7 @@ from app.modules.metrics.models import Metric
 
 @pytest.mark.asyncio
 async def test_lineage_repository_create_many_e_schema(db_session):
+    """Valida persistência de linhagem e conversão para schema Pydantic."""
     company = Company(name="Plano & Plano", ticker="PLPL3", ri_url="https://ri.planoeplano.com.br")
     db_session.add(company)
     await db_session.commit()

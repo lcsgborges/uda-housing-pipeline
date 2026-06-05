@@ -144,13 +144,14 @@ curl -X POST "http://localhost:8000/api/companies" \
 curl -X POST "http://localhost:8000/api/ingestion/run"
 ```
 
-O fluxo baixa PDFs novos, calcula SHA-256, ignora duplicados, grava o arquivo no RustFS e extrai métricas estruturadas com o provider configurado. Com OpenAI, os documentos pendentes são agrupados por lote; com Ollama, são processados sequencialmente no servidor local.
+O fluxo baixa PDFs novos, calcula SHA-256, ignora duplicados, grava o arquivo no RustFS, classifica documentos baixados e extrai métricas/insights estruturados dos documentos úteis com o provider configurado. Com OpenAI, os documentos pendentes são agrupados por lote; com Ollama, são processados sequencialmente no servidor local.
 
 ## 7. Consultar resultados
 
 ```bash
 curl "http://localhost:8000/api/documents"
 curl "http://localhost:8000/api/metrics"
+curl "http://localhost:8000/api/insights"
 curl "http://localhost:8000/api/conjuntura?empresa=MRV&ano=2025&trimestre=3"
 ```
 

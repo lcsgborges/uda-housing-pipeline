@@ -15,6 +15,7 @@ from app.modules.storage.service import (
 
 @pytest.mark.parametrize("scheme", ["rustfs", "s3"])
 def test_parse_s3_uri(scheme):
+    """Valida parsing de URI S3 e RustFS."""
     bucket, key = _parse_s3_uri(f"{scheme}://uda-documents/mrv/doc.pdf")
 
     assert bucket == "uda-documents"
@@ -22,11 +23,13 @@ def test_parse_s3_uri(scheme):
 
 
 def test_parse_s3_uri_rejeita_scheme_invalido():
+    """Garante rejeição de scheme não suportado em URI S3."""
     with pytest.raises(ValueError):
         _parse_s3_uri("ftp://bucket/file.pdf")
 
 
 def test_parse_s3_uri_rejeita_uri_sem_bucket_ou_key():
+    """Garante rejeição de URI sem bucket ou chave."""
     with pytest.raises(ValueError):
         _parse_s3_uri("s3://bucket")
 
@@ -35,10 +38,12 @@ def test_parse_s3_uri_rejeita_uri_sem_bucket_ou_key():
 
 
 def test_build_endpoint_url_para_rustfs_local_sem_tls():
+    """Valida URL HTTP para endpoint RustFS local sem TLS."""
     assert _build_endpoint_url(endpoint="rustfs:9000", secure=False) == "http://rustfs:9000"
 
 
 def test_build_endpoint_url_preserva_url_com_scheme():
+    """Garante preservação de scheme explícito e TLS configurado."""
     assert (
         _build_endpoint_url(endpoint="https://rustfs:9000", secure=False) == "https://rustfs:9000"
     )
@@ -46,6 +51,7 @@ def test_build_endpoint_url_preserva_url_com_scheme():
 
 
 def test_guess_content_type_por_extensao():
+    """Valida inferência simples de content type por extensão."""
     assert _guess_content_type("arquivo.pdf") == "application/pdf"
     assert _guess_content_type("imagem.png") == "image/png"
     assert _guess_content_type("foto.jpeg") == "image/jpeg"
@@ -53,6 +59,7 @@ def test_guess_content_type_por_extensao():
 
 
 def test_local_object_storage_grava_e_le(tmp_path):
+    """Garante gravação e leitura no storage local."""
     storage = LocalObjectStorage(tmp_path)
 
     stored = storage.store(key="mrv/doc.pdf", content=b"conteudo")
@@ -65,41 +72,50 @@ def test_local_object_storage_grava_e_le(tmp_path):
 
 class _Body:
     def __init__(self, data: bytes):
+        """Inicializa corpo fake de resposta S3."""
         self.data = data
         self.closed = False
 
     def read(self) -> bytes:
+        """Retorna bytes armazenados no corpo fake."""
         return self.data
 
     def close(self) -> None:
+        """Marca o corpo fake como fechado."""
         self.closed = True
 
 
 class _FakeS3Client:
     def __init__(self, missing_bucket: bool = False):
+        """Inicializa cliente S3 fake com bucket ausente opcional."""
         self.missing_bucket = missing_bucket
         self.created_bucket = None
         self.objects = {}
         self.last_body = None
 
     def head_bucket(self, Bucket):
+        """Simula verificação de existência do bucket."""
         if self.missing_bucket:
             raise ClientError({"Error": {"Code": "NoSuchBucket"}}, "HeadBucket")
 
     def create_bucket(self, Bucket):
+        """Registra criação de bucket."""
         self.created_bucket = Bucket
         self.missing_bucket = False
 
     def put_object(self, **kwargs):
+        """Registra objeto enviado ao S3 fake."""
         self.objects[(kwargs["Bucket"], kwargs["Key"])] = kwargs
 
     def get_object(self, Bucket, Key):
+        """Retorna corpo fake para o objeto gravado."""
         body = _Body(self.objects[(Bucket, Key)]["Body"])
         self.last_body = body
         return {"Body": body}
 
 
 def test_rustfs_storage_cria_bucket_grava_e_le(monkeypatch):
+    """Valida criação de bucket, gravação e leitura no storage RustFS."""
     fake_client = _FakeS3Client(missing_bucket=True)
     monkeypatch.setattr(storage_service.boto3, "client", lambda *args, **kwargs: fake_client)
 
@@ -121,8 +137,10 @@ def test_rustfs_storage_cria_bucket_grava_e_le(monkeypatch):
 
 
 def test_rustfs_storage_propaga_erro_de_bucket(monkeypatch):
+    """Garante propagação de erro inesperado ao verificar bucket."""
     class ForbiddenClient(_FakeS3Client):
         def head_bucket(self, Bucket):
+            """Simula erro de permissão no bucket."""
             raise ClientError({"Error": {"Code": "403"}}, "HeadBucket")
 
     monkeypatch.setattr(storage_service.boto3, "client", lambda *args, **kwargs: ForbiddenClient())
@@ -138,6 +156,7 @@ def test_rustfs_storage_propaga_erro_de_bucket(monkeypatch):
 
 
 def test_build_object_storage_escolhe_backend(monkeypatch, tmp_path):
+    """Valida factory escolhendo backend local."""
     monkeypatch.setattr(
         storage_service,
         "get_settings",
@@ -155,6 +174,7 @@ def test_build_object_storage_escolhe_backend(monkeypatch, tmp_path):
 
 
 def test_object_storage_base_rejeita_uso_direto():
+    """Garante que a classe base abstrata rejeita uso direto."""
     storage = ObjectStorage()
 
     with pytest.raises(NotImplementedError):
@@ -165,6 +185,7 @@ def test_object_storage_base_rejeita_uso_direto():
 
 
 def test_build_object_storage_escolhe_rustfs(monkeypatch):
+    """Valida factory escolhendo backend RustFS."""
     sentinel = object()
 
     monkeypatch.setattr(

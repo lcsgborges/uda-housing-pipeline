@@ -10,6 +10,7 @@ from app.modules.companies.service import CompanyService
 
 @pytest.mark.asyncio
 async def test_company_repository_crud_branches(db_session):
+    """Exercita criação, listagem, busca, atualização e remoção no repositório."""
     repository = CompanyRepository(db_session)
     payload = CompanyCreate(
         name="Tenda",
@@ -38,32 +39,39 @@ async def test_company_repository_crud_branches(db_session):
 
 class StubCompanyRepository:
     def __init__(self, company: Company | None = None, fail_on_create: bool = False):
+        """Inicializa stub com empresa opcional e falha configurável."""
         self.company = company
         self.fail_on_create = fail_on_create
         self.updated_payload = None
         self.deleted = False
 
     async def create(self, payload):
+        """Cria empresa fake ou simula violação de unicidade."""
         if self.fail_on_create:
             raise IntegrityError("statement", {}, Exception("duplicate"))
         return self.company
 
     async def list_all(self):
+        """Lista a empresa fake quando configurada."""
         return [self.company] if self.company else []
 
     async def get_by_id(self, company_id: int):
+        """Retorna a empresa fake independentemente do ID."""
         return self.company
 
     async def update(self, company: Company, payload: CompanyUpdate):
+        """Registra payload de atualização e retorna a empresa."""
         self.updated_payload = payload
         return company
 
     async def delete(self, company: Company):
+        """Marca que a remoção foi solicitada."""
         self.deleted = True
 
 
 @pytest.mark.asyncio
 async def test_company_service_conflict_update_delete_and_not_found():
+    """Valida branches de serviço para sucesso, ausência e conflito."""
     company = Company(
         name="MRV",
         ticker="MRVE3",

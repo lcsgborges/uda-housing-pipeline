@@ -42,8 +42,10 @@ nav:
   - Módulos:
       - Visão Geral: modulos/visao-geral.md
       - Ingestão: modulos/ingestao.md
+      - Classificação: modulos/classificacao.md
       - Extração UDA: modulos/extracao.md
       - Métricas e Conjuntura: modulos/metricas.md
+      - Insights Documentais: modulos/insights.md
       - Storage e Linhagem: modulos/storage-linhagem.md
   - Ambiente:
       - Configuração: ambiente/configuracao.md

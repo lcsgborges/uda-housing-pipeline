@@ -24,6 +24,7 @@ _postgres_stopped = False
 
 
 def stop_postgres() -> None:
+    """Encerra o container PostgreSQL de testes uma única vez."""
     global _postgres_stopped
     if not _postgres_stopped:
         postgres.stop()
@@ -54,7 +55,9 @@ TestingSessionLocal = async_sessionmaker(
 
 @pytest.fixture(scope="session", autouse=True)
 def postgres_container() -> Generator[PostgresContainer, None, None]:
+    """Prepara o schema no PostgreSQL efêmero usado pela suíte."""
     async def _prepare_schema() -> None:
+        """Recria todas as tabelas antes da sessão de testes."""
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
@@ -67,9 +70,11 @@ def postgres_container() -> Generator[PostgresContainer, None, None]:
 
 @pytest.fixture(autouse=True)
 def clean_db() -> Generator[None, None, None]:
+    """Limpa tabelas de domínio após cada teste."""
     yield
 
     async def _clean() -> None:
+        """Executa TRUNCATE em cascata para isolar testes."""
         async with engine.begin() as conn:
             await conn.execute(
                 text(
@@ -90,13 +95,16 @@ def clean_db() -> Generator[None, None, None]:
 
 @pytest_asyncio.fixture()
 async def db_session() -> AsyncGenerator:
+    """Fornece uma AsyncSession para testes de repositório e serviço."""
     async with TestingSessionLocal() as session:
         yield session
 
 
 @pytest.fixture()
 def client() -> Generator[TestClient, None, None]:
+    """Fornece TestClient com dependência de banco sobrescrita."""
     async def override_get_db():
+        """Entrega sessão de teste para endpoints FastAPI."""
         async with TestingSessionLocal() as session:
             yield session
 

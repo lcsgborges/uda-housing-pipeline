@@ -26,8 +26,9 @@ uv run alembic upgrade head
 
 1. Cadastre uma empresa.
 2. Execute ingestão.
-3. Execute extração em lote, se a ingestão foi separada.
-4. Consulte métricas ou conjuntura.
+3. Execute classificação em lote, se a ingestão foi separada.
+4. Execute extração em lote para documentos classificados como úteis.
+5. Consulte métricas, insights ou conjuntura.
 
 ## Exemplos de Chamadas
 
@@ -37,6 +38,14 @@ curl http://localhost:8000/health
 
 ```bash
 curl -X POST http://localhost:8000/api/ingestion/run
+```
+
+```bash
+curl -X POST "http://localhost:8000/api/ingestion/classify-batch?batch_size=5"
+```
+
+```bash
+curl -X POST "http://localhost:8000/api/ingestion/extract-batch?batch_size=5"
 ```
 
 ```bash

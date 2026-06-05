@@ -10,6 +10,7 @@ from app.core.database import get_db_session
 
 @pytest.mark.asyncio
 async def test_get_db_session_yields_async_session():
+    """Garante que a dependência de banco entrega uma AsyncSession."""
     session_generator = get_db_session()
     session = await anext(session_generator)
 
@@ -21,6 +22,7 @@ async def test_get_db_session_yields_async_session():
 
 @pytest.mark.asyncio
 async def test_lifespan_inicia_scheduler_quando_habilitado(monkeypatch):
+    """Valida start e stop do scheduler quando a configuração habilita ingestão."""
     calls = []
 
     monkeypatch.setattr(
@@ -38,6 +40,7 @@ async def test_lifespan_inicia_scheduler_quando_habilitado(monkeypatch):
 
 
 def test_health_endpoint(client):
+    """Valida o endpoint básico de saúde da API."""
     response = client.get("/health")
 
     assert response.status_code == 200

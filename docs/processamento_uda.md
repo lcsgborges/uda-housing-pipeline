@@ -4,7 +4,22 @@ Este projeto usa uma implementação nativa de UDA em Python. A extração de va
 
 ## B. Processamento dos dados
 
-### 1. Parsing e segmentação
+### 1. Classificação pré-extração
+
+Antes da extração completa, documentos baixados são classificados. A classificação usa uma amostra do texto extraído, páginas iniciais e chunks relevantes para decidir se o documento é útil, irrelevante ou se precisa de OCR.
+
+O contrato `DocumentClassification` grava:
+
+- utilidade do documento;
+- tipo documental;
+- domínios detectados;
+- ano e trimestre quando houver evidência;
+- estratégia de extração;
+- motivo e confiança.
+
+Documentos úteis seguem como `classified_useful`. Documentos sem dados úteis viram `ignored_not_relevant`. PDFs com texto insuficiente viram `needs_ocr`.
+
+### 2. Parsing e segmentação
 
 O parser usa `PyMuPDF` para abrir o PDF e extrair texto por blocos ordenados:
 
@@ -22,13 +37,13 @@ Arquivos principais:
 - `app/modules/extraction/chunking.py`
 - `app/modules/extraction/service.py`
 
-### 2. Extração
+### 3. Extração
 
 A pilha escolhida é solução nativa:
 
 - `PyMuPDF` para parsing;
 - motor próprio de chunking semântico;
-- Ollama local ou OpenAI Responses API para extração;
+- Ollama local ou OpenAI Responses API para classificação e extração;
 - `Pydantic` como contrato de saída estruturada.
 
 O prompt instrui o modelo a:
@@ -40,6 +55,7 @@ O prompt instrui o modelo a:
 - usar `null` para ausentes;
 - informar página e trecho de evidência sempre que possível;
 - retornar nomes de métricas em `snake_case`.
+- registrar insights/fatos quando a informação útil não tiver valor numérico claro.
 
 Arquivos principais:
 
@@ -47,11 +63,11 @@ Arquivos principais:
 - `app/modules/metrics/schemas.py`
 - `app/modules/metrics/catalog.py`
 
-Após a resposta estruturada da LLM, o serviço normaliza `metric_name` pelo catálogo e enriquece metadados seguros, como `metric_category`, `unit` e `currency`, sem inventar valores.
+Após a resposta estruturada da LLM, o serviço normaliza `metric_name` pelo catálogo e enriquece metadados seguros, como `metric_category`, `unit` e `currency`, sem inventar valores. Insights são persistidos em `document_insights` com tipo, tópico, resumo e evidência.
 
-### 3. Contrato semântico
+### 4. Contrato semântico
 
-O contrato semântico é definido por `ExtractedMetric`, `ExtractedMetricBatch` e `ExtractedBatchResponse`.
+O contrato semântico é definido por `ExtractedMetric`, `ExtractedInsight`, `ExtractedMetricBatch` e `ExtractedBatchResponse`.
 
 Validações relevantes:
 
@@ -72,6 +88,7 @@ Endpoints principais:
 
 - `GET /api/conjuntura?empresa=MRV&ano=2025&trimestre=3`
 - `GET /api/metrics?empresa=MRV&ano=2025&trimestre=3&metrica=vendas_liquidas`
+- `GET /api/insights?empresa=MRV&ano=2025`
 - `GET /api/documents`
 
 O endpoint de conjuntura resolve empresa por nome ou ticker e retorna métricas com fonte, página, trecho e confiança.

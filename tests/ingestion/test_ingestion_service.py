@@ -10,47 +10,57 @@ from app.modules.storage.service import StoredObject
 
 class _FakeDownloader:
     def __init__(self, content: bytes):
+        """Inicializa downloader fake com conteúdo fixo."""
         self.content = content
         self.urls = []
 
     def download(self, url, destination_dir):
+        """Registra download e retorna bytes configurados."""
         self.urls.append((url, destination_dir))
         return self.content
 
 
 class _FakeStorage:
     def __init__(self):
+        """Inicializa storage fake registrando objetos gravados."""
         self.stored = []
 
     def store(self, *, key: str, content: bytes):
+        """Registra objeto armazenado e retorna URI local fake."""
         self.stored.append((key, content))
         return StoredObject(uri=f"file:///{key}", size_bytes=len(content))
 
 
 class _FakeExtraction:
     def __init__(self):
+        """Inicializa serviço de extração fake com chamadas registradas."""
         self.documents = []
         self.batch_size = None
 
     async def process_document(self, document, company_name):
+        """Registra processamento individual de documento."""
         self.documents.append((document, company_name))
 
     async def process_all_pending_documents(self, batch_size=None):
+        """Registra batch_size e retorna resumo de extração fake."""
         self.batch_size = batch_size
         return {"batches": 1, "selected": 2, "processed": 2, "failed": 0}
 
 
 class _FakeClassification:
     def __init__(self, status=DocumentStatus.classified_useful):
+        """Inicializa classificador fake com status final configurável."""
         self.status = status
         self.documents = []
         self.batch_size = None
 
     async def classify_document(self, document, company_name):
+        """Registra classificação e aplica status configurado ao documento."""
         self.documents.append((document, company_name))
         document.status = self.status
 
     async def process_all_pending_documents(self, batch_size=None):
+        """Registra batch_size e retorna resumo de classificação fake."""
         self.batch_size = batch_size
         return {
             "batches": 1,
@@ -72,6 +82,7 @@ class _FakeClassification:
     ],
 )
 def test_infer_period(url, title, expected):
+    """Valida inferência de ano e trimestre por URL e título."""
     assert infer_period(url=url, title=title) == expected
 
 
@@ -88,11 +99,13 @@ def test_infer_period(url, title, expected):
     ],
 )
 def test_infer_document_type(text, expected):
+    """Valida inferência de tipo documental por texto normalizado."""
     assert infer_document_type(text) == expected
 
 
 @pytest.mark.asyncio
 async def test_ingestion_run_processa_links_de_empresas_ativas(monkeypatch, db_session):
+    """Garante ingestão apenas de empresas ativas."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
     inactive = Company(
         name="Inativa",
@@ -111,6 +124,7 @@ async def test_ingestion_run_processa_links_de_empresas_ativas(monkeypatch, db_s
     )()
 
     async def fake_ingest(company, url, title, extract_after_ingestion=True):
+        """Simula ingestão de link garantindo empresa ativa."""
         assert company.ticker == "MRVE3"
         assert extract_after_ingestion is True
         return "processed"
@@ -129,6 +143,7 @@ async def test_ingestion_run_processa_links_de_empresas_ativas(monkeypatch, db_s
 
 @pytest.mark.asyncio
 async def test_ingestion_run_filtra_empresa_e_contabiliza_ignorados(monkeypatch, db_session):
+    """Valida filtro por empresa e contador de duplicados ignorados."""
     selected = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
     other = Company(name="Tenda", ticker="TEND3", ri_url="https://ri.tenda.com", is_active=True)
     db_session.add_all([selected, other])
@@ -143,6 +158,7 @@ async def test_ingestion_run_filtra_empresa_e_contabiliza_ignorados(monkeypatch,
     )()
 
     async def fake_ingest(company, url, title, extract_after_ingestion=True):
+        """Simula link duplicado para empresa selecionada."""
         assert company.id == selected.id
         return "ignored"
 
@@ -160,6 +176,7 @@ async def test_ingestion_run_filtra_empresa_e_contabiliza_ignorados(monkeypatch,
 
 @pytest.mark.asyncio
 async def test_ingestion_run_scheduled_cycle_ingere_sem_extrair_imediato(monkeypatch, db_session):
+    """Garante que o ciclo agendado separa ingestão, classificação e extração."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br", is_active=True)
     db_session.add(company)
     await db_session.commit()
@@ -169,6 +186,7 @@ async def test_ingestion_run_scheduled_cycle_ingere_sem_extrair_imediato(monkeyp
     service.extraction_service = _FakeExtraction()
 
     async def fake_ingest(company, url, title, extract_after_ingestion=True):
+        """Simula ingestão sem extração imediata no ciclo agendado."""
         assert extract_after_ingestion is False
         return "processed"
 
@@ -197,6 +215,7 @@ async def test_ingestion_run_scheduled_cycle_ingere_sem_extrair_imediato(monkeyp
 
 @pytest.mark.asyncio
 async def test_ingest_link_novo_documento_salva_e_extrai(db_session):
+    """Valida ingestão de documento novo, storage, classificação e extração."""
     company = Company(name="Direcional", ticker="DIRR3", ri_url="https://ri.direcional.com.br")
     db_session.add(company)
     await db_session.commit()
@@ -224,6 +243,7 @@ async def test_ingest_link_novo_documento_salva_e_extrai(db_session):
 
 @pytest.mark.asyncio
 async def test_ingest_link_nao_extrai_documento_classificado_como_irrelevante(db_session):
+    """Garante que documento irrelevante classificado não segue para extração."""
     company = Company(name="Direcional", ticker="DIRR3", ri_url="https://ri.direcional.com.br")
     db_session.add(company)
     await db_session.commit()
@@ -248,6 +268,7 @@ async def test_ingest_link_nao_extrai_documento_classificado_como_irrelevante(db
 
 @pytest.mark.asyncio
 async def test_ingest_link_duplicado_cria_registro_ignored(db_session):
+    """Garante criação de registro ignored_duplicate para hash já existente."""
     company = Company(name="Tenda", ticker="TEND3", ri_url="https://ri.tenda.com")
     db_session.add(company)
     await db_session.commit()

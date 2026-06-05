@@ -8,6 +8,7 @@ from app.modules.documents.repository import DocumentRepository
 
 @pytest.mark.asyncio
 async def test_lista_busca_e_atualiza_documentos(client, db_session):
+    """Valida listagem, detalhe, URL de arquivo e status de documentos."""
     company = Company(name="Pacaembu", ticker="PCBU3", ri_url="https://ri.pacaembu.com")
     db_session.add(company)
     await db_session.commit()
@@ -45,6 +46,7 @@ async def test_lista_busca_e_atualiza_documentos(client, db_session):
 
 @pytest.mark.asyncio
 async def test_abre_arquivo_local_do_documento(client, db_session, tmp_path):
+    """Garante que o endpoint de arquivo retorna o PDF local com headers corretos."""
     pdf_path = tmp_path / "documento.pdf"
     pdf_path.write_bytes(b"%PDF-1.4 teste")
 

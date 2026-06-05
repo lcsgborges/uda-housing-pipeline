@@ -9,43 +9,53 @@ from app.modules.ingestion import scheduler as scheduler_module
 
 class _FakeSessionLocal:
     def __init__(self):
+        """Inicializa sessionmaker fake com sessão sentinela."""
         self.session = object()
 
     async def __aenter__(self):
+        """Entrega sessão fake no contexto assíncrono."""
         return self.session
 
     async def __aexit__(self, exc_type, exc, tb):
+        """Sai do contexto sem suprimir exceções."""
         return None
 
 
 class _FakeIngestionService:
     def __init__(self, session):
+        """Inicializa serviço fake preservando a sessão recebida."""
         self.session = session
 
     async def run_scheduled_cycle(self, company_id=None):
+        """Retorna o company_id para validar repasse de argumento."""
         return {"company_id": company_id}
 
 
 class _FakeScheduler:
     def __init__(self, timezone):
+        """Inicializa scheduler fake com timezone e lista de jobs."""
         self.timezone = timezone
         self.running = False
         self.jobs = []
         self.shutdown_wait = None
 
     def add_job(self, *args, **kwargs):
+        """Registra job agendado."""
         self.jobs.append((args, kwargs))
 
     def start(self):
+        """Marca scheduler como ativo."""
         self.running = True
 
     def shutdown(self, wait):
+        """Registra shutdown e marca scheduler como inativo."""
         self.shutdown_wait = wait
         self.running = False
 
 
 @pytest.mark.asyncio
 async def test_run_daily_cycle_usa_sessionlocal_e_service(monkeypatch):
+    """Valida uso de SessionLocal e IngestionService no ciclo diário."""
     monkeypatch.setattr(scheduler_module, "SessionLocal", _FakeSessionLocal)
     monkeypatch.setattr(scheduler_module, "IngestionService", _FakeIngestionService)
 
@@ -53,7 +63,9 @@ async def test_run_daily_cycle_usa_sessionlocal_e_service(monkeypatch):
 
 
 def test_run_daily_cycle_sync(monkeypatch):
+    """Valida wrapper síncrono do ciclo diário."""
     async def fake_run_daily_cycle(company_id=None):
+        """Retorna company_id para validar wrapper."""
         return {"company_id": company_id}
 
     monkeypatch.setattr(scheduler_module, "run_daily_cycle", fake_run_daily_cycle)
@@ -62,6 +74,7 @@ def test_run_daily_cycle_sync(monkeypatch):
 
 
 def test_start_scheduler_reusa_ativo_e_stop_desliga(monkeypatch):
+    """Garante reuso de scheduler ativo e desligamento correto."""
     monkeypatch.setattr(scheduler_module, "_scheduler", None)
     monkeypatch.setattr(scheduler_module, "BackgroundScheduler", _FakeScheduler)
     monkeypatch.setattr(
@@ -91,6 +104,7 @@ def test_start_scheduler_reusa_ativo_e_stop_desliga(monkeypatch):
 
 
 def test_stop_scheduler_sem_scheduler_ativo(monkeypatch):
+    """Garante que stop sem scheduler ativo não falha."""
     monkeypatch.setattr(scheduler_module, "_scheduler", None)
 
     scheduler_module.stop_scheduler()
@@ -99,6 +113,7 @@ def test_stop_scheduler_sem_scheduler_ativo(monkeypatch):
 
 
 def test_scheduler_main_executa_ingestao(monkeypatch, capsys):
+    """Valida execução do módulo scheduler como script."""
     import app.core.database as database_module
     import app.modules.ingestion.service as ingestion_service_module
 

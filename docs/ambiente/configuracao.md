@@ -35,12 +35,19 @@ Variáveis principais:
 | `LLM_PROVIDER` | `ollama` ou `openai`. |
 | `OPENAI_API_KEY` | Chave para extração remota com OpenAI. |
 | `OPENAI_MODEL` | Modelo usado pelo cliente OpenAI. |
+| `OPENAI_CLASSIFICATION_MODEL` | Modelo usado para classificação quando `LLM_PROVIDER=openai`. |
 | `OLLAMA_BASE_URL` | URL do servidor Ollama. |
 | `OLLAMA_MODEL` | Modelo local usado pelo Ollama. |
+| `OLLAMA_CLASSIFICATION_MODEL` | Modelo usado para classificação quando `LLM_PROVIDER=ollama`. |
 | `STORAGE_BACKEND` | `local` ou `rustfs`. |
 | `DOCUMENTS_DIR` | Diretório para storage local. |
 | `RUSTFS_*` | Configuração do storage S3 compatível. |
+| `CLASSIFICATION_BATCH_SIZE` | Tamanho padrão dos lotes de classificação. |
 | `EXTRACTION_BATCH_SIZE` | Tamanho padrão de lote. |
+| `CLASSIFICATION_CONTEXT_MAX_CHARS` | Tamanho máximo da amostra enviada ao classificador. |
+| `CLASSIFICATION_SAMPLE_PAGES` | Quantidade de páginas iniciais usadas na amostra de classificação. |
+| `EXTRACTION_FULL_SCAN_MAX_CHARS` | Limite para enviar documento inteiro em extração. |
+| `EXTRACTION_CONTEXT_MAX_CHARS` | Limite de contexto para chunks semânticos. |
 | `ENABLE_INGESTION_SCHEDULER` | Habilita scheduler junto da API. |
 | `INGESTION_SCHEDULE_HOUR` | Hora diária do ciclo; padrão `2`. |
 | `INGESTION_SCHEDULE_MINUTE` | Minuto diário do ciclo; padrão `0`. |
@@ -72,6 +79,7 @@ Em Linux, se o Ollama estiver ouvindo apenas em `127.0.0.1`, suba o servidor com
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
+OPENAI_CLASSIFICATION_MODEL=gpt-4.1-mini
 ```
 
 ## Banco
@@ -94,4 +102,10 @@ Para servir esta documentação:
 
 ```bash
 uv run --extra dev mkdocs serve
+```
+
+Para validar antes de publicar:
+
+```bash
+uv run --extra dev mkdocs build --strict
 ```

@@ -42,9 +42,27 @@ Código principal:
 
 - `app/modules/storage/service.py`
 
-## 5. Parsing e Contexto
+## 5. Classificação
 
-O parser extrai texto por página com PyMuPDF. Depois o serviço decide entre:
+Antes da extração completa, o sistema classifica o documento. Essa etapa reduz custo e ruído porque evita enviar documentos institucionais, avisos legais ou PDFs sem texto útil para a extração de métricas.
+
+Fluxo da classificação:
+
+1. Lê o PDF a partir de `local_path` ou URI de storage.
+2. Extrai texto por página com PyMuPDF.
+3. Detecta PDFs provavelmente escaneados quando há pouco texto extraído.
+4. Monta uma amostra com páginas iniciais e chunks relevantes.
+5. Envia a amostra para a LLM com o contrato `DocumentClassification`.
+6. Atualiza o documento para `classified_useful`, `ignored_not_relevant`, `needs_ocr` ou `failed`.
+
+Código principal:
+
+- `app/modules/classification/service.py`
+- `app/modules/classification/schemas.py`
+
+## 6. Parsing e Contexto de Extração
+
+Somente documentos em `classified_useful` seguem para extração. O parser extrai texto por página com PyMuPDF. Depois o serviço decide entre:
 
 - `full_scan`: documentos curtos entram completos no contexto.
 - `semantic_chunking`: documentos longos são quebrados em chunks e ranqueados.
@@ -55,9 +73,16 @@ Código principal:
 - `app/modules/extraction/chunking.py`
 - `app/modules/extraction/service.py`
 
-## 6. Extração por LLM
+## 7. Extração por LLM
 
 O cliente LLM recebe o contexto, metadados do documento e o catálogo canônico de métricas. A resposta precisa obedecer ao contrato Pydantic.
+
+O contrato permite duas saídas:
+
+- métricas numéricas, persistidas em `metrics`;
+- insights/fatos documentais, persistidos em `document_insights`.
+
+Com `LLM_PROVIDER=openai`, o serviço envia vários documentos em uma única chamada de extração. Com `LLM_PROVIDER=ollama`, a interface de lote percorre os documentos sequencialmente.
 
 Código principal:
 
@@ -65,25 +90,28 @@ Código principal:
 - `app/modules/extraction/semantic_contract.py`
 - `app/modules/metrics/schemas.py`
 
-## 7. Normalização e Persistência
+## 8. Normalização e Persistência
 
 Antes de salvar, o serviço:
 
 - normaliza `metric_name` por alias;
 - preenche categoria, unidade e moeda quando o catálogo permite;
 - mantém `null` para valores realmente ausentes;
+- descarta métricas sem `value`, mas preserva insights sem valor numérico;
 - cria registros de linhagem para cada métrica.
 
 Código principal:
 
 - `app/modules/metrics/catalog.py`
 - `app/modules/extraction/service.py`
+- `app/modules/insights/models.py`
 - `app/modules/lineage/models.py`
 
-## 8. Consulta
+## 9. Consulta
 
 As consultas são expostas pela API:
 
 - `/api/metrics`: dados brutos.
 - `/api/conjuntura`: visão deduplicada por métrica canônica.
+- `/api/insights`: fatos, metas, ações, riscos e explicações extraídos.
 - `/api/documents`: documentos e status.

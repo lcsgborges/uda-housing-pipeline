@@ -10,6 +10,7 @@ from app.modules.metrics.service import _catalog_category, _quality_level
 
 @pytest.mark.asyncio
 async def test_metric_repository_create_many_e_list_all(db_session):
+    """Valida criação em lote e ordenação de listagem de métricas."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
     db_session.add(company)
     await db_session.commit()
@@ -61,6 +62,7 @@ async def test_metric_repository_create_many_e_list_all(db_session):
 
 
 def test_metric_service_quality_level_e_categoria_de_catalogo():
+    """Cobre níveis de qualidade e categoria obtida do catálogo."""
     assert _quality_level(85) == "alta"
     assert _quality_level(65) == "media"
     assert _quality_level(64) == "baixa"

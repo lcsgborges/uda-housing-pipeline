@@ -7,9 +7,10 @@ A aplicação implementa um pipeline UDA (Unstructured Data Analysis) para o set
 1. observa fontes de RI das empresas;
 2. detecta novos PDFs (prévias/relatórios);
 3. aplica idempotência por hash para evitar duplicidade;
-4. extrai métricas com LLM usando contrato semântico estruturado (em lote quando necessário);
-5. registra linhagem (origem do dado);
-6. disponibiliza os dados via API REST.
+4. classifica documentos por utilidade antes da extração;
+5. extrai métricas e insights com LLM usando contrato semântico estruturado;
+6. registra linhagem das métricas;
+7. disponibiliza os dados via API REST.
 
 A stack principal:
 
@@ -27,9 +28,11 @@ A stack principal:
 
 - `app/modules/companies`: cadastro de empresas e URL de RI.
 - `app/modules/ingestion`: scraping de links PDF, download, hash, deduplicação e orquestração de ingestão.
+- `app/modules/classification`: filtro semântico pré-extração.
 - `app/modules/extraction`: parsing do PDF, estratégia full-scan/chunking e extração via LLM.
 - `app/modules/documents`: catálogo de documentos processados.
 - `app/modules/metrics`: métricas extraídas e endpoint de conjuntura.
+- `app/modules/insights`: fatos documentais qualitativos extraídos.
 - `app/modules/lineage`: rastreabilidade origem -> métrica.
 - `app/core`: config, banco e logging.
 
@@ -47,11 +50,21 @@ Ao chamar `POST /api/ingestion/run`:
 2. cada PDF é baixado e recebe `SHA-256`;
 3. o hash é consultado no catálogo de documentos;
 4. se o hash já existe: status `ignored_duplicate`;
-5. se o hash é novo: documento segue para extração.
+5. se o hash é novo: documento é salvo e fica pronto para classificação.
 
-### 3.3 Extração semântica
+### 3.3 Classificação
 
 Para documentos novos:
+
+1. PDF é convertido para texto por página;
+2. o sistema detecta PDFs com texto insuficiente e marca `needs_ocr`;
+3. uma amostra inteligente é enviada à LLM;
+4. documentos úteis recebem `classified_useful`;
+5. documentos irrelevantes recebem `ignored_not_relevant`.
+
+### 3.4 Extração semântica
+
+Para documentos classificados como úteis:
 
 1. PDF é convertido para texto por página;
 2. estratégia adaptativa de contexto:
@@ -59,9 +72,9 @@ Para documentos novos:
    - documento longo: `chunking` com limite de contexto;
 3. LLM extrai métricas em JSON estruturado;
 4. payload é validado por contrato semântico (tipos, campos, confiança, `null` para ausentes);
-5. métricas são gravadas no banco.
+5. métricas e insights são gravados no banco.
 
-### 3.4 Linhagem
+### 3.5 Linhagem
 
 Para cada métrica, o sistema salva:
 
@@ -70,11 +83,12 @@ Para cada métrica, o sistema salva:
 - `extraction_model`, `extraction_prompt_version`
 - timestamp de extração
 
-### 3.5 Consulta
+### 3.6 Consulta
 
 A API permite:
 
 - listar/consultar métricas (`/api/metrics`)
+- listar insights documentais (`/api/insights`)
 - consultar conjuntura por empresa/ano/trimestre (`/api/conjuntura`)
 
 ## 4) Configuração de ambiente
@@ -100,12 +114,15 @@ cp .env.example .env
 - `LLM_PROVIDER=ollama` + `OLLAMA_BASE_URL` + `OLLAMA_MODEL` (extração local)
 - `LLM_PROVIDER=openai` + `OPENAI_API_KEY` (extração remota em lote)
 - `OPENAI_MODEL=gpt-4.1-mini`
+- `OPENAI_CLASSIFICATION_MODEL=gpt-4.1-mini`
+- `OLLAMA_CLASSIFICATION_MODEL=llama3.1`
 - `ENABLE_INGESTION_SCHEDULER=false` (manual) ou `true` (diário)
 - `INGESTION_SCHEDULE_HOUR=2`, `INGESTION_SCHEDULE_MINUTE=0`
 - `SCHEDULER_TIMEZONE=America/Sao_Paulo`
 - `STORAGE_BACKEND=local` ou `rustfs`
 - `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_BUCKET`
 - `EXTRACTION_BATCH_SIZE=5`
+- `CLASSIFICATION_BATCH_SIZE=5`
 
 ## 5) Como subir com Docker Compose
 
@@ -191,10 +208,12 @@ curl -X POST "http://127.0.0.1:8000/api/ingestion/run"
 
 Validar campos de retorno:
 
-- `companies`
-- `discovered`
-- `processed`
-- `ignored_duplicates`
+- `ingestion.companies`
+- `ingestion.discovered`
+- `ingestion.processed`
+- `ingestion.ignored_duplicates`
+- `classification.selected`
+- `extraction.selected`
 
 ### Passo 3 - Consultar documentos
 
@@ -204,8 +223,9 @@ curl "http://127.0.0.1:8000/api/documents"
 
 Validar:
 
-- documentos com status (`downloaded`, `processed`, `ignored_duplicate`, `failed`)
+- documentos com status (`downloaded`, `classifying`, `classified_useful`, `processing`, `processed`, `ignored_not_relevant`, `ignored_duplicate`, `needs_ocr`, `failed`)
 - `file_hash`, `original_url`, `year`, `quarter`
+- campos de classificação como `classification_reason`, `detected_domains` e `extraction_strategy`
 
 ### Passo 4 - Consultar métricas extraídas
 
@@ -230,7 +250,19 @@ Validar:
 - retorno da empresa/perfil temporal correto
 - lista de métricas com fonte e confiança
 
-### Passo 6 - Validar idempotência
+### Passo 6 - Consultar insights
+
+```bash
+curl "http://127.0.0.1:8000/api/insights?empresa=MRV&ano=2025"
+```
+
+Validar:
+
+- `insight_type`, `topic` e `summary`
+- `source_page` e `source_excerpt` quando disponível
+- `confidence`
+
+### Passo 7 - Validar idempotência
 
 Execute a ingestão novamente:
 
@@ -257,8 +289,8 @@ Com isso, o job roda automaticamente no horário definido por:
 - `INGESTION_SCHEDULE_MINUTE`
 - `SCHEDULER_TIMEZONE`
 
-O ciclo diário primeiro baixa documentos novos, depois processa todos os pendentes
-em lotes de `EXTRACTION_BATCH_SIZE`.
+O ciclo diário primeiro baixa documentos novos, depois classifica pendências em lotes de
+`CLASSIFICATION_BATCH_SIZE` e extrai documentos úteis em lotes de `EXTRACTION_BATCH_SIZE`.
 
 ## 9) Testes automatizados
 

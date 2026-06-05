@@ -2,7 +2,7 @@
 
 > Autor: Lucas Guimarães Borges
 
-Pipeline UDA (Unstructured Data Analysis) para coletar documentos não estruturados do mercado habitacional, extrair métricas com LLM, validar a saída por contrato Pydantic e disponibilizar dados estruturados para análise de conjuntura.
+Pipeline UDA (Unstructured Data Analysis) para coletar documentos não estruturados do mercado habitacional, classificar utilidade documental, extrair métricas e insights com LLM, validar a saída por contrato Pydantic e disponibilizar dados estruturados para análise de conjuntura.
 
 O projeto foi desenhado para transformar PDFs de Relações com Investidores, resultados trimestrais, prévias operacionais e boletins de conjuntura em dados relacionais com rastreabilidade de origem.
 
@@ -13,8 +13,9 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 - coleta automatizada de PDFs;
 - idempotência por hash SHA-256;
 - parsing de PDF com PyMuPDF;
+- classificação pré-extração para ignorar documentos irrelevantes ou marcar PDFs que precisam de OCR;
 - seleção de contexto por full scan ou chunking semântico;
-- extração estruturada via Ollama local ou OpenAI Responses API em lote;
+- extração estruturada de métricas e insights via Ollama local ou OpenAI Responses API em lote;
 - validação de saída com Pydantic;
 - normalização por catálogo canônico de métricas;
 - persistência em PostgreSQL;
@@ -43,7 +44,7 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 
 ![Pipeline UDA — Fluxo](docs/assets/pipeline.png)
 
-> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), extração (PDF parser, chunking, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
+> Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), classificação, extração (PDF parser, chunking, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
 
 Módulos principais:
 
@@ -52,9 +53,11 @@ Módulos principais:
 | `app/core` | Configuração, banco, logging e utilitários. |
 | `app/modules/companies` | Cadastro de empresas e fontes RI. |
 | `app/modules/ingestion` | Scraping, download, hash, idempotência e scheduler diário. |
-| `app/modules/extraction` | Parsing, chunking, cliente LLM e persistência da extração. |
+| `app/modules/classification` | Classificação de documentos úteis, irrelevantes ou dependentes de OCR. |
+| `app/modules/extraction` | Parsing, chunking, cliente LLM e persistência de métricas e insights. |
 | `app/modules/documents` | Catálogo e status de documentos. |
 | `app/modules/metrics` | Métricas, catálogo canônico e endpoint de conjuntura. |
+| `app/modules/insights` | Consulta de fatos documentais extraídos sem valor numérico obrigatório. |
 | `app/modules/lineage` | Linhagem dos dados extraídos. |
 | `app/modules/storage` | Storage local ou S3-compatible. |
 
@@ -106,7 +109,11 @@ Variáveis mais importantes:
 | `LLM_PROVIDER` | `ollama` para execução local ou `openai` para extração remota em lote. |
 | `OPENAI_API_KEY` | Chave da OpenAI quando `LLM_PROVIDER=openai`. |
 | `OPENAI_MODEL` | Modelo usado pelo cliente OpenAI. |
+| `OPENAI_CLASSIFICATION_MODEL` | Modelo usado na classificação com OpenAI. |
 | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Endpoint e modelo usados quando `LLM_PROVIDER=ollama`. |
+| `OLLAMA_CLASSIFICATION_MODEL` | Modelo usado na classificação com Ollama. |
+| `CLASSIFICATION_BATCH_SIZE` | Tamanho padrão dos lotes de classificação. |
+| `EXTRACTION_BATCH_SIZE` | Tamanho padrão dos lotes de extração. |
 | `ENABLE_INGESTION_SCHEDULER` | Habilita o ciclo diário junto da API. |
 | `INGESTION_SCHEDULE_HOUR`, `INGESTION_SCHEDULE_MINUTE` | Horário diário do ciclo; padrão `02:00`. |
 | `SCHEDULER_TIMEZONE` | Timezone do scheduler; padrão `America/Sao_Paulo`. |
@@ -242,11 +249,13 @@ uv run python -m app.modules.ingestion.scheduler
 | `GET /health` | Saúde da API. |
 | `POST /api/companies` | Cadastrar empresa. |
 | `GET /api/companies` | Listar empresas. |
-| `POST /api/ingestion/run` | Rodar ciclo geral: ingestão de novidades e extração em lote. |
+| `POST /api/ingestion/run` | Rodar ciclo geral: ingestão, classificação e extração em lote. |
 | `POST /api/ingestion/run/{company_id}` | Rodar ciclo por empresa. |
+| `POST /api/ingestion/classify-batch` | Classificar um lote de documentos baixados. |
 | `POST /api/ingestion/extract-batch` | Extrair um lote de documentos pendentes. |
 | `GET /api/documents` | Listar documentos. |
 | `GET /api/metrics` | Listar métricas brutas. |
+| `GET /api/insights` | Listar insights documentais extraídos. |
 | `GET /api/conjuntura` | Consultar camada Gold de conjuntura. |
 
 Exemplo:

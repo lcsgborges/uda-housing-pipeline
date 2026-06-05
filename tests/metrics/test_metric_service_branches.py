@@ -12,6 +12,7 @@ from app.modules.metrics.service import MetricService
 
 @pytest.mark.asyncio
 async def test_metric_repository_query_and_conjuntura_branches(db_session):
+    """Valida filtros do repositório e consulta de conjuntura."""
     company = Company(name="MRV", ticker="MRVE3", ri_url="https://ri.mrv.com.br")
     db_session.add(company)
     await db_session.commit()
@@ -80,6 +81,7 @@ async def test_metric_repository_query_and_conjuntura_branches(db_session):
 
 @pytest.mark.asyncio
 async def test_metric_service_lookup_and_not_found_branches(db_session):
+    """Cobre busca por empresa, Gold, métrica encontrada e erros 404."""
     company = Company(name="São José", ticker="SJOS3", ri_url="https://ri.saojose.com.br")
     db_session.add(company)
     await db_session.commit()

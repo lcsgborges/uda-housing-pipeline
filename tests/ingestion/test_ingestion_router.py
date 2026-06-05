@@ -1,10 +1,12 @@
 class _FakeExtractionService:
     async def process_pending_documents_batch(self, batch_size):
+        """Retorna resumo fake de extração em lote."""
         return {"selected": batch_size, "processed": batch_size, "failed": 0}
 
 
 class _FakeClassificationService:
     async def process_pending_documents_batch(self, batch_size):
+        """Retorna resumo fake de classificação em lote."""
         return {
             "selected": batch_size,
             "useful": batch_size,
@@ -16,11 +18,13 @@ class _FakeClassificationService:
 
 class _FakeIngestionService:
     def __init__(self, session=None):
+        """Inicializa serviço fake com subserviços de classificação e extração."""
         self.session = session
         self.classification_service = _FakeClassificationService()
         self.extraction_service = _FakeExtractionService()
 
     async def run(self, company_id=None):
+        """Retorna resumo fake de ingestão geral ou por empresa."""
         return {
             "companies": 1 if company_id else 2,
             "discovered": 3,
@@ -29,6 +33,7 @@ class _FakeIngestionService:
         }
 
     async def run_scheduled_cycle(self, company_id=None):
+        """Retorna resumo fake do ciclo completo de ingestão."""
         return {
             "ingestion": await self.run(company_id=company_id),
             "classification": {
@@ -44,6 +49,7 @@ class _FakeIngestionService:
 
 
 def test_ingestion_router_executa_fluxos(client):
+    """Valida endpoints de ingestão, classificação e extração em lote."""
     from app.main import app
     from app.modules.ingestion.router import get_service
 
@@ -73,6 +79,7 @@ def test_ingestion_router_executa_fluxos(client):
 
 
 def test_get_service_constroi_ingestion_service(monkeypatch):
+    """Garante que a dependência constrói IngestionService com sessão."""
     from app.modules.ingestion import router as ingestion_router
 
     monkeypatch.setattr(ingestion_router, "IngestionService", _FakeIngestionService)

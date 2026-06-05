@@ -29,7 +29,7 @@ RUSTFS_SECURE=false
 
 ## Linhagem
 
-Para cada métrica persistida, o sistema cria um registro em `data_lineage`.
+Para cada métrica persistida, o sistema cria um registro em `data_lineage`. Insights guardam sua própria evidência em `source_page` e `source_excerpt`, mas não geram registro em `data_lineage` nesta versão.
 
 Campos principais:
 
@@ -49,4 +49,4 @@ A extração com LLM precisa ser auditável. A linhagem permite conferir de onde
 
 ## Consulta
 
-Hoje a linhagem é carregada junto da métrica na persistência e pode ser consultada por repositório/serviço. Um endpoint específico de linhagem é um próximo passo natural.
+Hoje a linhagem é persistida junto das métricas e pode ser consultada por repositório/serviço. Um endpoint específico de linhagem é um próximo passo natural.

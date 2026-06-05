@@ -7,12 +7,14 @@ from app.modules.metrics.catalog import (
 
 
 def test_catalogo_normaliza_aliases_para_nome_canonico():
+    """Valida normalização de aliases para nomes canônicos."""
     assert canonical_metric_name("Vendas Contratadas Líquidas") == "vendas_liquidas"
     assert canonical_metric_name("Valor Geral de Vendas Lançado") == "vgv_lancado"
     assert canonical_metric_name("Métrica Nova") == "metrica_nova"
 
 
 def test_catalogo_expoe_metadados_para_extracao_e_chunking():
+    """Valida metadados do catálogo usados por extração e chunking."""
     definition = find_metric_definition("vendas contratadas liquidas")
     esg_definition = find_metric_definition("emissões de gases de efeito estufa")
 

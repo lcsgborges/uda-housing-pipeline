@@ -8,6 +8,7 @@ from app.modules.documents.repository import DocumentRepository
 
 @pytest.mark.asyncio
 async def test_deteccao_duplicidade_por_hash(db_session):
+    """Valida busca de documento existente pelo hash de arquivo."""
     company = Company(name="Tenda", ticker="TEND3", ri_url="https://ri.tenda.com", is_active=True)
     db_session.add(company)
     await db_session.commit()

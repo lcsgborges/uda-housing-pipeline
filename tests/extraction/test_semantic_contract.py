@@ -9,6 +9,7 @@ from app.modules.metrics.schemas import ExtractedMetricBatch
 
 
 def test_schema_valido():
+    """Valida payload mínimo aceito pelo contrato semântico."""
     payload = {
         "metrics": [
             {
@@ -31,6 +32,7 @@ def test_schema_valido():
 
 
 def test_schema_rejeita_confianca_invalida():
+    """Garante rejeição de confiança fora da faixa permitida."""
     payload = {
         "metrics": [
             {
@@ -45,6 +47,7 @@ def test_schema_rejeita_confianca_invalida():
 
 
 def test_schema_rejeita_nome_de_metrica_fora_do_padrao():
+    """Garante rejeição de metric_name fora de snake_case."""
     payload = {
         "metrics": [
             {
@@ -59,6 +62,7 @@ def test_schema_rejeita_nome_de_metrica_fora_do_padrao():
 
 
 def test_schema_rejeita_pagina_invalida():
+    """Garante rejeição de página de origem menor que um."""
     payload = {
         "metrics": [
             {
@@ -74,6 +78,7 @@ def test_schema_rejeita_pagina_invalida():
 
 
 def test_semantic_contract_exporta_json_schema():
+    """Valida exportação de JSON Schema dos contratos semânticos."""
     schema = get_semantic_contract_json_schema()
     batch_schema = get_semantic_batch_contract_json_schema()
 

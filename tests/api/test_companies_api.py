@@ -1,4 +1,5 @@
 def test_cria_empresa(client):
+    """Valida criação de empresa pela API."""
     payload = {
         "name": "MRV",
         "ticker": "MRVE3",
@@ -12,6 +13,7 @@ def test_cria_empresa(client):
 
 
 def test_lista_empresas(client):
+    """Valida listagem de empresas cadastradas."""
     payload = {
         "name": "Direcional",
         "ticker": "DIRR3",
@@ -25,6 +27,7 @@ def test_lista_empresas(client):
 
 
 def test_atualiza_busca_e_remove_empresa(client):
+    """Valida consulta, atualização parcial e remoção de empresa."""
     created = client.post(
         "/api/companies",
         json={
@@ -52,6 +55,7 @@ def test_atualiza_busca_e_remove_empresa(client):
 
 
 def test_cria_empresa_duplicada_retorna_409(client):
+    """Garante que empresa duplicada retorna conflito HTTP 409."""
     payload = {
         "name": "Cury",
         "ticker": "CURY3",

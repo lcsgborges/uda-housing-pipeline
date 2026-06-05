@@ -3,6 +3,7 @@ from pathlib import Path
 
 
 def test_fixture_conjuntura_3t2025_transcreve_exemplo():
+    """Valida que o fixture de conjuntura preserva os valores esperados."""
     fixture_path = Path("docs/exemplos/conjuntura_3t2025_exemplo.json")
     data = json.loads(fixture_path.read_text(encoding="utf-8"))
 

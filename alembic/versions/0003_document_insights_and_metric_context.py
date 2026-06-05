@@ -16,46 +16,55 @@ depends_on = None
 
 
 def _inspector():
+    """Retorna o inspetor SQLAlchemy conectado ao bind da migration."""
     return sa.inspect(op.get_bind())
 
 
 def _table_exists(table_name: str) -> bool:
+    """Indica se uma tabela já existe no banco atual."""
     return table_name in _inspector().get_table_names()
 
 
 def _column_exists(table_name: str, column_name: str) -> bool:
+    """Indica se uma coluna existe, protegendo chamadas em tabelas ausentes."""
     if not _table_exists(table_name):
         return False
     return column_name in {column["name"] for column in _inspector().get_columns(table_name)}
 
 
 def _index_exists(table_name: str, index_name: str) -> bool:
+    """Indica se um índice existe, protegendo chamadas em tabelas ausentes."""
     if not _table_exists(table_name):
         return False
     return index_name in {index["name"] for index in _inspector().get_indexes(table_name)}
 
 
 def _add_column_if_missing(table_name: str, column: sa.Column) -> None:
+    """Adiciona uma coluna somente quando ela ainda não existe."""
     if not _column_exists(table_name, column.name):
         op.add_column(table_name, column)
 
 
 def _drop_column_if_exists(table_name: str, column_name: str) -> None:
+    """Remove uma coluna somente quando ela existe."""
     if _column_exists(table_name, column_name):
         op.drop_column(table_name, column_name)
 
 
 def _create_index_if_missing(index_name: str, table_name: str, columns: list[str]) -> None:
+    """Cria um índice somente quando ele ainda não existe."""
     if not _index_exists(table_name, index_name):
         op.create_index(index_name, table_name, columns)
 
 
 def _drop_index_if_exists(index_name: str, table_name: str) -> None:
+    """Remove um índice somente quando ele existe."""
     if _index_exists(table_name, index_name):
         op.drop_index(index_name, table_name=table_name)
 
 
 def upgrade() -> None:
+    """Adiciona contexto de métrica e tabela de insights documentais."""
     _add_column_if_missing(
         "metrics",
         sa.Column("period_label", sa.String(length=80), nullable=True),
@@ -125,6 +134,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Remove a tabela de insights e os campos contextuais de métricas."""
     _drop_index_if_exists("ix_document_insights_period_quarter", "document_insights")
     _drop_index_if_exists("ix_document_insights_period_year", "document_insights")
     _drop_index_if_exists("ix_document_insights_topic", "document_insights")

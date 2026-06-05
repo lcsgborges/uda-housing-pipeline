@@ -21,6 +21,7 @@ _ = (Company, DataLineage, Document, DocumentInsight, Metric)
 
 
 def run_migrations_offline() -> None:
+    """Executa migrations sem conexão ativa usando URL literal configurada."""
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -34,6 +35,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
+    """Configura o contexto Alembic síncrono sobre uma conexão existente."""
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
@@ -41,6 +43,7 @@ def do_run_migrations(connection) -> None:
 
 
 async def run_async_migrations() -> None:
+    """Cria engine assíncrona e executa migrations dentro de uma conexão."""
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -54,6 +57,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
+    """Executa migrations online delegando para o fluxo assíncrono."""
     asyncio.run(run_async_migrations())
 
 

@@ -39,9 +39,12 @@ uv run task test
 | Diretório | Cobertura |
 | --- | --- |
 | `tests/api` | Endpoints FastAPI. |
+| `tests/classification` | Classificação de documentos e transições de status. |
+| `tests/companies` | Repositório e serviço de empresas. |
+| `tests/documents` | Serviço de documentos e leitura de arquivo. |
 | `tests/ingestion` | Scraper, download, hashing e idempotência. |
 | `tests/extraction` | Parser, chunking, LLM client, contrato e serviço. |
-| `tests/metrics` | Catálogo de métricas. |
+| `tests/metrics` | Catálogo, repositório, serviço e camada de conjuntura. |
 | `tests/lineage` | Repositório e schema de linhagem. |
 | `tests/storage` | Storage local e S3 compatível. |
 | `tests/fixtures` | Exemplos estruturados. |
@@ -62,6 +65,7 @@ Isso evita depender de RustFS para testes automatizados.
 Adicione ou atualize testes quando alterar:
 
 - contrato Pydantic;
+- contrato de classificação;
 - ranking da camada de conjuntura;
 - catálogo de métricas;
 - estados de documento;
