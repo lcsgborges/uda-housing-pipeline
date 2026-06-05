@@ -58,6 +58,6 @@ uv run uvicorn app.main:app --reload
 
 ```bash
 uv run --extra dev pytest -q
-uv run --extra dev ruff check app tests
-uv run --extra dev mkdocs build --strict
+uv run task lint
+uv run task mkdocs_build
 ```

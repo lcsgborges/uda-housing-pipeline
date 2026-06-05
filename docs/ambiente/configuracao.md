@@ -27,8 +27,7 @@ Variáveis principais:
 | Variável | Uso |
 | --- | --- |
 | `DATABASE_URL` | URL SQLAlchemy async do PostgreSQL. |
-| `API_PORT` | Porta publicada da API nos composes. |
-| `DOCS_PORT` | Porta publicada da documentação MkDocs. |
+| `API_PORT` | Porta publicada da API no Compose. |
 | `POSTGRES_PORT` | Porta publicada do PostgreSQL. |
 | `RUSTFS_API_PORT` | Porta publicada da API S3 do RustFS. |
 | `RUSTFS_CONSOLE_PORT` | Porta publicada do console RustFS. |
@@ -101,11 +100,13 @@ uv run alembic revision --autogenerate -m "descricao"
 Para servir esta documentação:
 
 ```bash
-uv run --extra dev mkdocs serve
+uv run task mkdocs
 ```
+
+Acesse `http://127.0.0.1:8001`.
 
 Para validar antes de publicar:
 
 ```bash
-uv run --extra dev mkdocs build --strict
+uv run task mkdocs_build
 ```

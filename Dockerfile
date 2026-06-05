@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS api-builder
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
@@ -21,6 +21,7 @@ LABEL org.opencontainers.image.authors="Lucas Guimarães Borges <lcsgborges@gmai
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH="/app" \
     RUN_MIGRATIONS=true \
     PATH="/app/.venv/bin:$PATH" \
     VIRTUAL_ENV="/app/.venv"
@@ -30,7 +31,7 @@ RUN groupadd --system app && \
 
 WORKDIR /app
 
-COPY --from=api-builder --chown=app:app /app/.venv ./.venv
+COPY --from=builder --chown=app:app /app/.venv ./.venv
 COPY --chown=app:app app ./app
 COPY --chown=app:app alembic ./alembic
 COPY --chown=app:app docker ./docker
@@ -46,32 +47,3 @@ USER app
 
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS docs-builder
-
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
-
-WORKDIR /app
-
-COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --extra dev --no-install-project
-
-COPY docs ./docs
-COPY mkdocs.yml README.md ./
-
-RUN uv run mkdocs build --strict
-
-
-FROM nginx:1.27-alpine AS docs
-
-LABEL org.opencontainers.image.authors="Lucas Guimarães Borges <lcsgborges@gmail.com>" \
-      org.opencontainers.image.source="https://github.com/lcsgborges/uda-housing-pipeline" \
-      org.opencontainers.image.url="https://github.com/lcsgborges/uda-housing-pipeline" \
-      org.opencontainers.image.title="Housing Data Intelligence Docs"
-
-COPY --from=docs-builder /app/site /usr/share/nginx/html
-
-EXPOSE 80

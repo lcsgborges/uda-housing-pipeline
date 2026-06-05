@@ -134,10 +134,10 @@ cp .env.example .env
 
 2. Preencher `OPENAI_API_KEY` no `.env`.
 
-3. Subir API + PostgreSQL + RustFS + MkDocs:
+3. Subir API + PostgreSQL + RustFS:
 
 ```bash
-docker compose --env-file .env -f compose.dev.yml up --build
+docker compose --env-file .env up --build
 ```
 
 4. Validar:
@@ -150,9 +150,16 @@ Endpoints úteis:
 
 - API: `http://127.0.0.1:8000`
 - Swagger/OpenAPI: `http://127.0.0.1:8000/docs`
-- MkDocs: `http://127.0.0.1:8001`
 - RustFS S3 API: `http://127.0.0.1:9000`
 - RustFS Console: `http://127.0.0.1:9001`
+
+Para ver a documentação MkDocs, rode fora do container:
+
+```bash
+uv run task mkdocs
+```
+
+Acesse `http://127.0.0.1:8001`.
 
 ## 6) Como subir a aplicação sem Docker
 

@@ -11,7 +11,7 @@
 ## Rodar Tudo
 
 ```bash
-uv run --extra dev pytest -q
+uv run task test
 ```
 
 Os testes sobem um PostgreSQL em container. Docker precisa estar ativo.
@@ -19,19 +19,13 @@ Os testes sobem um PostgreSQL em container. Docker precisa estar ativo.
 ## Lint
 
 ```bash
-uv run --extra dev ruff check app tests
+uv run task lint
 ```
 
 ## Cobertura
 
 ```bash
-uv run --extra dev pytest --cov=app
-```
-
-Ou use a task:
-
-```bash
-uv run task test
+uv run pytest --cov=app
 ```
 
 ## Organização

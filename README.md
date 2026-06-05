@@ -69,19 +69,19 @@ Rodar localmente:
 
 ```bash
 uv sync --extra dev
-uv run --extra dev mkdocs serve
+uv run task mkdocs
 ```
+
+A documentação fica em `http://127.0.0.1:8001`.
 
 Build strict:
 
 ```bash
-uv run --extra dev mkdocs build --strict
+uv run task mkdocs_build
 ```
 
-Com Docker Compose, a documentação sobe junto:
-
-- Dev: `http://localhost:8001`
-- Prod: `http://localhost:8001`
+O MkDocs não é empacotado no container da aplicação. A imagem Docker leva apenas
+o necessário para rodar a API, migrations e pipeline.
 
 Arquivos principais:
 
@@ -119,7 +119,7 @@ Variáveis mais importantes:
 | `SCHEDULER_TIMEZONE` | Timezone do scheduler; padrão `America/Sao_Paulo`. |
 | `STORAGE_BACKEND` | `local` ou `rustfs`. |
 | `RUSTFS_*` | Configurações do RustFS. |
-| `API_PORT`, `DOCS_PORT`, `POSTGRES_PORT` | Portas publicadas pelos composes. |
+| `API_PORT`, `POSTGRES_PORT` | Portas publicadas pelo Compose. |
 
 Para extração local sem custo de API externa:
 
@@ -147,17 +147,11 @@ sequencialmente.
 
 ## Docker Compose
 
-Stacks disponíveis:
-
-- `compose.dev.yml`
-- `compose.prod.yml`
-
-### Desenvolvimento
-
-Sobe API, PostgreSQL, RustFS e MkDocs com reload/bind mount:
+Há um único `compose.yml`. O comportamento de desenvolvimento ou produção é definido pelo `.env`.
+O Compose sobe API, PostgreSQL e RustFS; a documentação roda localmente por task.
 
 ```bash
-docker compose --env-file .env -f compose.dev.yml up --build
+docker compose --env-file .env up --build
 ```
 
 Atalhos:
@@ -173,41 +167,29 @@ Serviços:
 | --- | --- |
 | API | `http://localhost:8000` |
 | Swagger/OpenAPI | `http://localhost:8000/docs` |
-| MkDocs | `http://localhost:8001` |
 | PostgreSQL | `localhost:5432` |
 | RustFS S3 API | `http://localhost:9000` |
 | RustFS Console | `http://localhost:9001` |
 
-### Produção
-
-Usa imagem de API sem dependências dev e docs estático servido por Nginx:
+Para rodar em segundo plano:
 
 ```bash
-docker compose --env-file .env -f compose.prod.yml up --build -d
+docker compose --env-file .env up --build -d
 ```
 
-Atalhos:
+## Dockerfile
 
-```bash
-uv run task compose_prod_up
-uv run task compose_prod_down
-```
+O projeto usa um único `Dockerfile` otimizado para a API:
 
-## Dockerfiles
-
-Imagens disponíveis:
-
-| Arquivo | Uso |
-| --- | --- |
-| `Dockerfile.dev` | Ambiente de desenvolvimento, API com reload e MkDocs serve. |
-| `Dockerfile.prod` | Targets `api` e `docs` para produção. |
+- estágio `builder`: instala dependências de runtime com `uv sync --frozen --no-dev`;
+- estágio `api`: copia somente `.venv`, `app`, `alembic`, `docker` e `alembic.ini`;
+- executa como usuário não-root;
+- não copia `docs`, `mkdocs.yml`, testes, coverage ou artefatos locais.
 
 Build manual:
 
 ```bash
-docker build -f Dockerfile.dev -t hdi-dev .
-docker build -f Dockerfile.prod --target api -t hdi-api .
-docker build -f Dockerfile.prod --target docs -t hdi-docs .
+docker build -t hdi-api:latest .
 ```
 
 ## Execução Local Sem Docker
@@ -300,13 +282,13 @@ Cada métrica persistida gera registro em `data_lineage` com:
 Rodar lint:
 
 ```bash
-uv run --extra dev ruff check app tests
+uv run task lint
 ```
 
 Rodar testes:
 
 ```bash
-uv run --extra dev pytest -q
+uv run task test
 ```
 
 Os testes usam Testcontainers para subir PostgreSQL efêmero. Docker precisa estar disponível.
@@ -317,7 +299,7 @@ O workflow em `.github/workflows/ci.yml` roda:
 
 - Ruff;
 - pytest;
-- `mkdocs build --strict`;
+- `task mkdocs_build`;
 - deploy do MkDocs no GitHub Pages em push para `main`.
 
 Para o deploy funcionar, configure no GitHub:

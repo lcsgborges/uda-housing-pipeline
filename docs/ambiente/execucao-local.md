@@ -69,11 +69,7 @@ uv run python -m app.modules.ingestion.scheduler
 ## Documentação Local
 
 ```bash
-uv run --extra dev mkdocs serve
+uv run task mkdocs
 ```
 
-Acesse `http://127.0.0.1:8000` se a porta estiver livre. Se a API já estiver usando essa porta, rode:
-
-```bash
-uv run --extra dev mkdocs serve -a 127.0.0.1:8001
-```
+Acesse `http://127.0.0.1:8001`.

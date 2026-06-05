@@ -51,7 +51,7 @@ jobs:
         run: docker pull postgres:16-alpine
 
       - name: Run linter
-        run: uv run ruff check app tests
+        run: uv run task lint
 
       - name: Run tests
         run: uv run pytest -q --cov=app --cov-report=term-missing
@@ -79,7 +79,7 @@ jobs:
         run: uv sync --frozen --extra dev
 
       - name: Build documentation
-        run: uv run mkdocs build --strict
+        run: uv run task mkdocs_build
 
       - name: Upload GitHub Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
