@@ -15,7 +15,9 @@ from app.modules.metrics.schemas import (
 SYSTEM_PROMPT = f"""
 Você é um módulo UDA para relatórios de incorporadoras brasileiras.
 Você receberá texto integral de PDFs curtos ou chunks semânticos de PDFs longos.
-Extraia apenas métricas explícitas no contexto enviado.
+Extraia duas camadas de informação explícita no contexto enviado:
+1. Métricas numéricas estruturadas, quando houver valor numérico claro.
+2. Insights/fatos documentais úteis, inclusive quando forem qualitativos.
 Priorize valores absolutos reportados pela empresa; ignore percentuais de variação quando eles forem
 apenas comparativos de marketing.
 Se o documento for um boletim de conjuntura ou uma tabela comparativa cujo valor principal seja uma
@@ -23,13 +25,24 @@ variação percentual, extraia esse percentual como dado válido usando unit="%"
 Se o documento for relatório de sustentabilidade/ESG, extraia indicadores ambientais, sociais,
 governança e GRI quando houver valor explícito, incluindo emissões, água, energia, resíduos,
 segurança do trabalho, diversidade e valor econômico gerado.
-Não calcule, estime ou invente valores. Quando uma métrica não estiver explícita, use null.
+Não calcule, estime ou invente valores. Não retorne métricas sem value numérico explícito.
+Quando uma informação for útil mas não tiver valor numérico claro, registre em insights.
 Preserve ano/trimestre informados no payload quando o documento não trouxer período melhor.
 Use preferencialmente os nomes canônicos do catálogo abaixo. Se houver sinônimo, responda com o nome
 canônico; se encontrar uma métrica fora do catálogo, crie um nome em snake_case claro e específico.
 
 Catálogo de métricas:
 {metric_catalog_prompt()}
+
+Para métricas, preencha raw_label com o rótulo original da tabela/texto e dimension quando houver
+segmento, escopo, marca, geografia, unidade de negócio, "MRV Brasil", "Resia", "Escopo 1" etc.
+Use period_label quando o documento usar período textual como "2025", "1T26", "ano-base 2024" ou
+"ciclo 2025".
+
+Para insights, extraia conteúdo analítico útil como metas, compromissos, ações realizadas,
+riscos, oportunidades, governança, certificações, controvérsias, políticas, indicadores GRI,
+explicações de desempenho, causas de variação e planos futuros. Use insight_type em snake_case,
+por exemplo meta, acao, risco, governanca, gri, explicacao, destaque, compromisso, certificacao.
 
 Inclua source_page e source_excerpt sempre que possível para sustentar a linhagem.
 O source_excerpt deve ser curto e conter o trecho exato que justifica o valor.
@@ -384,7 +397,7 @@ def _build_single_document_prompt(
 ) -> str:
     """Monta o prompt de usuário para um único documento."""
     return f"""
-Extraia as métricas do documento abaixo.
+Extraia métricas e insights/fatos do documento abaixo.
 
 Empresa: {company}
 Título: {title}
@@ -401,9 +414,10 @@ Conteúdo do documento:
 def _build_batch_prompt(payloads: list[dict]) -> str:
     """Monta o prompt de usuário para extração em lote."""
     return f"""
-Extraia as métricas dos documentos abaixo.
+Extraia métricas e insights/fatos dos documentos abaixo.
 Para cada documento, copie o document_ref recebido para a resposta correspondente.
-Retorne uma entrada em documents para todos os document_ref recebidos, mesmo quando metrics for [].
+Retorne uma entrada em documents para todos os document_ref recebidos, mesmo quando metrics e
+insights forem [].
 
 Documentos:
 {json.dumps(payloads, ensure_ascii=False)}

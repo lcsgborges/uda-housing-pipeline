@@ -34,9 +34,15 @@ atexit.register(stop_postgres)
 
 from app.core.database import Base, engine, get_db_session  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models_registry import Company, DataLineage, Document, Metric  # noqa: E402
+from app.models_registry import (  # noqa: E402
+    Company,
+    DataLineage,
+    Document,
+    DocumentInsight,
+    Metric,
+)
 
-_ = (Company, Document, Metric, DataLineage)
+_ = (Company, Document, Metric, DataLineage, DocumentInsight)
 
 TestingSessionLocal = async_sessionmaker(
     autocommit=False,
@@ -70,6 +76,7 @@ def clean_db() -> Generator[None, None, None]:
                     """
                     TRUNCATE TABLE
                         data_lineage,
+                        document_insights,
                         metrics,
                         documents,
                         companies

@@ -13,6 +13,7 @@ from app.modules.extraction.service import (
     _is_storage_uri,
     _normalize_unit_and_currency,
 )
+from app.modules.insights.models import DocumentInsight
 from app.modules.lineage.models import DataLineage
 from app.modules.metrics.models import Metric
 from app.modules.metrics.schemas import ExtractedBatchResponse
@@ -50,8 +51,11 @@ class _BatchLLM:
             "company": "MRV",
             "period_year": 2025,
             "period_quarter": 3,
+            "period_label": None,
             "metric_name": "vendas_liquidas",
             "metric_category": "operacional",
+            "raw_label": None,
+            "dimension": None,
             "value": 100.0,
             "unit": "R$",
             "currency": "BRL",
@@ -66,7 +70,8 @@ class _BatchLLM:
         return SimpleNamespace(
             metrics=[
                 SimpleNamespace(**self._metric_payload()),
-            ]
+            ],
+            insights=[],
         )
 
     def extract_metrics_batch(self, payloads):
@@ -91,7 +96,7 @@ class _BatchLLM:
 
 class _EmptyBatchLLM:
     def extract_metrics(self, **kwargs):
-        return SimpleNamespace(metrics=[])
+        return SimpleNamespace(metrics=[], insights=[])
 
     def extract_metrics_batch(self, payloads):
         return ExtractedBatchResponse.model_validate({"documents": []})
@@ -99,7 +104,7 @@ class _EmptyBatchLLM:
 
 class _EmptyMetricsBatchLLM:
     def extract_metrics(self, **kwargs):
-        return SimpleNamespace(metrics=[])
+        return SimpleNamespace(metrics=[], insights=[])
 
     def extract_metrics_batch(self, payloads):
         return ExtractedBatchResponse.model_validate(
@@ -117,7 +122,7 @@ class _EmptyMetricsBatchLLM:
 
 class _AliasMetricLLM:
     def extract_metrics(self, **kwargs):
-        return SimpleNamespace(metrics=[])
+        return SimpleNamespace(metrics=[], insights=[])
 
     def extract_metrics_batch(self, payloads):
         return ExtractedBatchResponse.model_validate(
@@ -138,6 +143,66 @@ class _AliasMetricLLM:
                                 "source_page": 1,
                                 "source_excerpt": "Vendas contratadas líquidas de R$ 200 milhões.",
                                 "confidence": 0.88,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+
+class _InsightLLM:
+    def extract_metrics(self, **kwargs):
+        return SimpleNamespace(metrics=[], insights=[])
+
+    def extract_metrics_batch(self, payloads):
+        return ExtractedBatchResponse.model_validate(
+            {
+                "documents": [
+                    {
+                        "document_ref": payloads[0]["document_ref"],
+                        "metrics": [
+                            {
+                                "company": "MRV",
+                                "period_year": 2025,
+                                "metric_name": "emissoes_gee",
+                                "metric_category": "ambiental",
+                                "value": None,
+                                "unit": "tCO2e",
+                                "source_page": 55,
+                                "source_excerpt": "Indicador qualitativo sem valor numérico.",
+                                "confidence": 0.6,
+                            },
+                            {
+                                "company": "MRV",
+                                "period_year": 2025,
+                                "period_label": "ano-base 2025",
+                                "metric_name": "agua_captada",
+                                "metric_category": "ambiental",
+                                "raw_label": "Água captada - MRV Brasil",
+                                "dimension": "MRV Brasil",
+                                "value": 4.96,
+                                "unit": "megalitros",
+                                "source_page": 67,
+                                "source_excerpt": "Água captada totalizou 4,96 megalitros.",
+                                "confidence": 0.89,
+                            },
+                        ],
+                        "insights": [
+                            {
+                                "insight_type": "meta",
+                                "topic": "emissoes_gee",
+                                "summary": (
+                                    "A companhia definiu meta de reduzir emissões "
+                                    "por unidade produzida."
+                                ),
+                                "value_text": "redução de 5% das emissões/UP no ciclo 2025",
+                                "period_year": 2025,
+                                "source_page": 55,
+                                "source_excerpt": (
+                                    "meta, para o ciclo de 2025, redução em 5% das emissões."
+                                ),
+                                "confidence": 0.92,
                             }
                         ],
                     }
@@ -208,6 +273,31 @@ async def test_process_document_normaliza_alias_e_enriquece_metadados(db_session
 
 
 @pytest.mark.asyncio
+async def test_process_document_persiste_insights_e_contexto_da_metrica(db_session):
+    company, document = await _create_company_and_document(db_session)
+    service = ExtractionService(db_session)
+    service.parser = _FakeParser()
+    service.llm = _InsightLLM()
+
+    await service.process_document(document, company_name=company.name)
+
+    metrics = list((await db_session.scalars(select(Metric))).all())
+    insights = list((await db_session.scalars(select(DocumentInsight))).all())
+    await db_session.refresh(document)
+
+    assert len(metrics) == 1
+    assert metrics[0].metric_name == "agua_captada"
+    assert metrics[0].value == 4.96
+    assert metrics[0].raw_label == "Água captada - MRV Brasil"
+    assert metrics[0].dimension == "MRV Brasil"
+    assert metrics[0].period_label == "ano-base 2025"
+    assert len(insights) == 1
+    assert insights[0].insight_type == "meta"
+    assert insights[0].topic == "emissoes_gee"
+    assert document.status == DocumentStatus.processed
+
+
+@pytest.mark.asyncio
 async def test_process_document_rejeita_extracao_sem_metricas(db_session):
     company, document = await _create_company_and_document(db_session)
     service = ExtractionService(db_session)
@@ -219,7 +309,7 @@ async def test_process_document_rejeita_extracao_sem_metricas(db_session):
     await db_session.refresh(document)
 
     assert document.status == DocumentStatus.failed
-    assert document.error_message == "Nenhuma métrica extraída do documento."
+    assert document.error_message == "Nenhuma métrica ou insight extraído do documento."
 
 
 @pytest.mark.asyncio
@@ -342,7 +432,7 @@ async def test_process_pending_documents_batch_marca_failed_quando_sem_metricas(
     assert result == {"selected": 1, "processed": 0, "failed": 1}
     assert metrics == []
     assert document.status == DocumentStatus.failed
-    assert document.error_message == "Nenhuma métrica extraída do documento."
+    assert document.error_message == "Nenhuma métrica ou insight extraído do documento."
 
 
 @pytest.mark.asyncio

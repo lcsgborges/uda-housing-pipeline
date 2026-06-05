@@ -51,3 +51,8 @@ class Document(Base):
 
     company = relationship("Company", back_populates="documents")
     metrics = relationship("Metric", back_populates="document", cascade="all, delete-orphan")
+    insights = relationship(
+        "DocumentInsight",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )

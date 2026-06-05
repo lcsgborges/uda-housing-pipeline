@@ -15,3 +15,8 @@ class Company(TimestampMixin, Base):
 
     documents = relationship("Document", back_populates="company", cascade="all, delete-orphan")
     metrics = relationship("Metric", back_populates="company", cascade="all, delete-orphan")
+    insights = relationship(
+        "DocumentInsight",
+        back_populates="company",
+        cascade="all, delete-orphan",
+    )

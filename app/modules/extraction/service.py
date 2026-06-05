@@ -10,6 +10,7 @@ from app.modules.documents.models import Document, DocumentStatus
 from app.modules.extraction.chunking import Chunk, SemanticChunker
 from app.modules.extraction.llm_client import build_llm_client
 from app.modules.extraction.pdf_parser import PDFParser
+from app.modules.insights.models import DocumentInsight
 from app.modules.lineage.models import DataLineage
 from app.modules.metrics.catalog import canonical_metric_name, find_metric_definition
 from app.modules.metrics.models import Metric
@@ -48,17 +49,19 @@ class ExtractionService:
             None,
         )
         metrics = batch_item.metrics if batch_item else None
-        if not metrics:
-            retry_metrics, retry_error = self._extract_single_document_metrics(payload)
-            metrics = retry_metrics
+        insights = batch_item.insights if batch_item else None
+        if not metrics and not insights:
+            retry_response, retry_error = self._extract_single_document(payload)
+            metrics = retry_response.metrics if retry_response else None
+            insights = retry_response.insights if retry_response else None
             if retry_error:
                 logger.warning(
                     "Retry individual falhou para documento %s: %s",
                     document.id,
                     retry_error,
                 )
-        if not metrics:
-            failure_message = "Nenhuma métrica extraída do documento."
+        if not metrics and not insights:
+            failure_message = "Nenhuma métrica ou insight extraído do documento."
             if retry_error:
                 failure_message = f"{failure_message} Retry individual falhou: {retry_error}"
             _mark_document_failed(document, failure_message)
@@ -68,6 +71,7 @@ class ExtractionService:
         await self._persist_extraction(
             document=document,
             metrics=metrics,
+            insights=insights,
         )
 
     async def process_pending_documents_batch(self, batch_size: int | None = None) -> dict:
@@ -121,18 +125,18 @@ class ExtractionService:
             for ref, (doc, _) in by_ref.items():
                 item = returned_by_ref.get(ref)
                 metrics = item.metrics if item else None
+                insights = item.insights if item else None
                 failure_message = None
 
-                if not metrics:
-                    retry_metrics, retry_error = self._extract_single_document_metrics(
-                        payload_by_ref[ref]
-                    )
-                    metrics = retry_metrics
-                    if not metrics:
+                if not metrics and not insights:
+                    retry_response, retry_error = self._extract_single_document(payload_by_ref[ref])
+                    metrics = retry_response.metrics if retry_response else None
+                    insights = retry_response.insights if retry_response else None
+                    if not metrics and not insights:
                         if item is None:
                             failure_message = "Documento não retornado no batch da LLM."
                         else:
-                            failure_message = "Nenhuma métrica extraída do documento."
+                            failure_message = "Nenhuma métrica ou insight extraído do documento."
                         if retry_error:
                             failure_message = (
                                 f"{failure_message} Retry individual falhou: {retry_error}"
@@ -143,10 +147,18 @@ class ExtractionService:
                     self.session.add(doc)
                     failed += 1
                     continue
-                await self._persist_extraction(
-                    document=doc,
-                    metrics=metrics,
-                )
+                try:
+                    await self._persist_extraction(
+                        document=doc,
+                        metrics=metrics,
+                        insights=insights,
+                    )
+                except Exception as exc:
+                    _mark_document_failed(doc, str(exc))
+                    self.session.add(doc)
+                    await self.session.commit()
+                    failed += 1
+                    continue
                 processed += 1
                 processed_refs.add(ref)
             await self.session.commit()
@@ -173,14 +185,24 @@ class ExtractionService:
             totals["failed"] += result["failed"]
         return totals
 
-    async def _persist_extraction(self, *, document: Document, metrics: list) -> None:
-        """Persiste métricas normalizadas e seus registros de linhagem."""
-        if not metrics:
-            raise ValueError("Nenhuma métrica extraída do documento.")
+    async def _persist_extraction(
+        self,
+        *,
+        document: Document,
+        metrics: list | None,
+        insights: list | None = None,
+    ) -> None:
+        """Persiste métricas normalizadas, insights e registros de linhagem."""
+        metrics = metrics or []
+        insights = insights or []
+        if not metrics and not insights:
+            raise ValueError("Nenhuma métrica ou insight extraído do documento.")
 
         metric_rows: list[Metric] = []
         lineage_rows: list[DataLineage] = []
         for item in metrics:
+            if item.value is None:
+                continue
             metric_name = canonical_metric_name(item.metric_name)
             definition = find_metric_definition(metric_name)
             unit, currency = _normalize_unit_and_currency(
@@ -197,6 +219,9 @@ class ExtractionService:
                 or (definition.category if definition else None),
                 period_year=item.period_year,
                 period_quarter=item.period_quarter,
+                period_label=item.period_label,
+                raw_label=item.raw_label,
+                dimension=item.dimension,
                 value=item.value,
                 unit=unit,
                 currency=currency,
@@ -206,7 +231,32 @@ class ExtractionService:
             )
             metric_rows.append(metric)
 
+        insight_rows = [
+            DocumentInsight(
+                company_id=document.company_id,
+                document_id=document.id,
+                insight_type=item.insight_type,
+                topic=item.topic,
+                summary=item.summary,
+                value_text=item.value_text,
+                period_year=item.period_year,
+                period_quarter=item.period_quarter,
+                source_page=item.source_page,
+                source_excerpt=item.source_excerpt,
+                confidence=item.confidence,
+            )
+            for item in insights
+        ]
+
+        if not metric_rows and not insight_rows:
+            message = "Nenhuma métrica com valor ou insight extraído do documento."
+            _mark_document_failed(document, message)
+            self.session.add(document)
+            await self.session.commit()
+            raise ValueError(message)
+
         self.session.add_all(metric_rows)
+        self.session.add_all(insight_rows)
         await self.session.commit()
         for metric in metric_rows:
             await self.session.refresh(metric)
@@ -231,7 +281,7 @@ class ExtractionService:
         self.session.add(document)
         await self.session.commit()
 
-    def _extract_single_document_metrics(self, payload: dict) -> tuple[list | None, str | None]:
+    def _extract_single_document(self, payload: dict):
         """Tenta reprocessar um documento individualmente após falha no batch."""
         try:
             extracted = self.llm.extract_metrics(
@@ -245,7 +295,7 @@ class ExtractionService:
             )
         except Exception as exc:
             return None, str(exc)
-        return extracted.metrics, None
+        return extracted, None
 
     def _parse_document(self, document: Document):
         """Lê e parseia um documento a partir de path local ou storage URI."""
