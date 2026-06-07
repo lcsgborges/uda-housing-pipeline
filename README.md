@@ -15,7 +15,7 @@ Transformar documentos não estruturados em métricas habitacionais auditáveis:
 - parsing de PDF com PyMuPDF;
 - classificação pré-extração para ignorar documentos irrelevantes ou marcar PDFs que precisam de OCR;
 - seleção de contexto por full scan ou varredura sequencial completa;
-- extração estruturada de métricas e insights via Ollama local ou OpenAI Responses API em lote;
+- extração estruturada de métricas e insights via Ollama local, OpenAI Responses API ou OpenAI Batch API;
 - validação de saída com Pydantic;
 - normalização por catálogo canônico de métricas;
 - persistência em PostgreSQL;
@@ -61,6 +61,25 @@ Módulos principais:
 | `app/modules/lineage` | Linhagem dos dados extraídos. |
 | `app/modules/storage` | Storage local ou S3-compatible. |
 
+## Como o Pipeline Funciona
+
+O ciclo começa por chamada manual, scheduler diário ou CLI. A aplicação lê empresas
+ativas, descobre PDFs em páginas de RI e centrais MZiQ, baixa documentos novos,
+calcula SHA-256 para evitar duplicidade e salva o arquivo em storage local ou
+RustFS/S3. O PostgreSQL guarda o estado operacional em `documents`.
+
+Depois, a classificação lê o PDF com PyMuPDF e usa a LLM configurada para decidir
+se o documento é útil, irrelevante ou dependente de OCR. Apenas documentos
+`classified_useful` seguem para extração. A extração usa full scan em documentos
+curtos ou varredura sequencial em documentos longos, valida a resposta com
+Pydantic, normaliza nomes pelo catálogo canônico e persiste `metrics`,
+`document_insights` e `data_lineage`.
+
+Com `LLM_PROVIDER=openai`, a extração pode ser síncrona pela Responses API ou
+assíncrona pela OpenAI Batch API. No Batch API, cada parte documental vira uma
+linha JSONL com `custom_id`, o arquivo é enviado com `purpose=batch`, o batch usa
+endpoint `/v1/responses` e o import só persiste quando o status está `completed`.
+
 ## Documentação
 
 A documentação técnica fica em MkDocs Material.
@@ -88,6 +107,7 @@ Arquivos principais:
 - `mkdocs.yml`
 - `docs/index.md`
 - `docs/projeto/arquitetura.md`
+- `docs/projeto/operacao.md`
 - `docs/projeto/fluxo-de-dados.md`
 - `docs/ambiente/configuracao.md`
 - `docs/como_rodar_com_compose.md`
@@ -156,8 +176,9 @@ curl -X POST "http://localhost:8000/api/ingestion/openai-batch/{batch_id}/import
 ```
 
 O `submit` cria um arquivo JSONL com uma request `/v1/responses` por parte de documento,
-faz upload com `purpose=batch` e cria o batch com janela `24h`. O `import` deve ser usado
-somente quando o status estiver `completed`.
+faz upload com `purpose=batch` e cria o batch com janela `24h`. O `batch_size` controla
+quantos documentos entram na submissão; documentos longos podem gerar várias requests.
+O `import` deve ser usado somente quando o status estiver `completed`.
 
 ## Docker Compose
 

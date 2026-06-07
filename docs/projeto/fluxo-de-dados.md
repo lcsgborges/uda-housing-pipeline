@@ -1,5 +1,9 @@
 # Fluxo de Dados
 
+Esta página descreve a passagem dos dados pelo pipeline. Para a visão de operação
+com estados, Batch API e componentes de runtime, consulte
+[Operação do Pipeline](operacao.md).
+
 ## 1. Cadastro de Empresas
 
 Empresas são cadastradas com nome, ticker e URL de Relações com Investidores.
@@ -27,6 +31,10 @@ Código principal:
 
 O downloader baixa o documento, calcula SHA-256 e consulta documentos já registrados. Se o hash já existe, o novo registro é marcado como `ignored_duplicate`.
 
+Se o hash não existir, o serviço salva o PDF no backend configurado, infere ano,
+trimestre e tipo documental a partir de URL/título quando possível, e cria o
+registro `downloaded` em `documents`.
+
 Código principal:
 
 - `app/modules/ingestion/downloader.py`
@@ -40,7 +48,7 @@ O conteúdo do PDF é gravado em storage local ou RustFS. A tabela `documents` g
 Backends:
 
 - `local`: grava no diretório definido por `DOCUMENTS_DIR`.
-- `rustfs`: grava em bucket S3 compatível.
+- `rustfs`: grava em bucket S3 compatível e persiste URI `s3://bucket/key`.
 
 Código principal:
 
@@ -58,6 +66,9 @@ Fluxo da classificação:
 4. Monta uma amostra com páginas iniciais e chunks relevantes.
 5. Envia a amostra para a LLM com o contrato `DocumentClassification`.
 6. Atualiza o documento para `classified_useful`, `ignored_not_relevant`, `needs_ocr` ou `failed`.
+
+Além do status, a etapa persiste metadados como confiança, motivo, domínios
+detectados, modelo de classificação, período inferido e estratégia de extração.
 
 Código principal:
 
@@ -90,6 +101,16 @@ O contrato permite duas saídas:
 
 Com `LLM_PROVIDER=openai`, o serviço pode usar extração síncrona pela Responses API ou submissão offline pela OpenAI Batch API. No modo Batch API, cada parte do documento vira uma linha JSONL com `custom_id`, e o resultado é importado depois do status `completed`. Com `LLM_PROVIDER=ollama`, a interface de lote percorre os documentos sequencialmente no servidor local.
 
+No modo OpenAI Batch API:
+
+1. `submit` seleciona documentos úteis e gera uma request `/v1/responses` por parte.
+2. O arquivo JSONL é enviado pela Files API com `purpose=batch`.
+3. O batch é criado com janela `24h`.
+4. Os documentos selecionados ficam `processing`.
+5. `GET /openai-batch/{batch_id}` consulta o status.
+6. `import` só persiste resultados quando o batch está `completed`.
+7. Se houver erro ou parte faltante, o documento afetado vira `failed`.
+
 Código principal:
 
 - `app/modules/extraction/llm_client.py`
@@ -121,3 +142,17 @@ As consultas são expostas pela API:
 - `/api/conjuntura`: visão deduplicada por métrica canônica.
 - `/api/insights`: fatos, metas, ações, riscos e explicações extraídos.
 - `/api/documents`: documentos e status.
+
+## 10. Estados Operacionais
+
+| Status | Entrada principal | Próximo passo comum |
+| --- | --- | --- |
+| `downloaded` | PDF novo salvo | Classificação. |
+| `classifying` | Lote de classificação iniciado | Decisão de utilidade. |
+| `classified_useful` | Documento aprovado | Extração síncrona ou Batch API. |
+| `processing` | Extração iniciada ou batch submetido | Persistência ou falha. |
+| `processed` | Métricas ou insights salvos | Consulta. |
+| `ignored_duplicate` | Hash já conhecido | Fim. |
+| `ignored_not_relevant` | LLM classificou como irrelevante | Fim. |
+| `needs_ocr` | Texto insuficiente | OCR futuro. |
+| `failed` | Erro auditável | Investigação ou reprocessamento manual. |

@@ -83,14 +83,24 @@ falar com o serviço `rustfs` pela rede interna; por isso o Compose usa
 `COMPOSE_RUSTFS_ENDPOINT=rustfs:9000` e injeta esse valor como `RUSTFS_ENDPOINT`
 no container.
 
-### OpenAI em Lote
+### OpenAI Remoto e Batch API
 
 ```env
 LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4.1-mini
 OPENAI_CLASSIFICATION_MODEL=gpt-4.1-mini
+OPENAI_BATCH_COMPLETION_WINDOW=24h
 ```
+
+Com `LLM_PROVIDER=openai`, a extração pode rodar de duas formas:
+
+- síncrona, por `POST /api/ingestion/extract-batch`;
+- assíncrona, por `POST /api/ingestion/openai-batch/submit`.
+
+No modo assíncrono, `EXTRACTION_BATCH_SIZE` controla quantos documentos são
+selecionados para submissão, mas documentos longos podem gerar várias requests
+no JSONL porque são quebrados em partes sequenciais.
 
 ## Banco
 

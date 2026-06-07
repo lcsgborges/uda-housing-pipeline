@@ -4,6 +4,8 @@
 
 A aplicação é uma API FastAPI com módulos de domínio separados por responsabilidade. O banco relacional guarda empresas, documentos, classificação, métricas, insights e linhagem. O storage guarda os PDFs baixados localmente ou em RustFS compatível com S3.
 
+Para uma visão operacional ponta a ponta, veja também [Operação do Pipeline](operacao.md). Esta página descreve a arquitetura estática; a página de operação descreve o ciclo em execução, estados e Batch API.
+
 ![Pipeline UDA — Fluxo](../assets/pipeline.png)
 
 > Figura: Fluxo do pipeline UDA — ingestão, storage (local/RustFS), classificação, extração (PDF parser, segmentação sequencial, LLM), contrato Pydantic, catálogo de métricas, persistência (PostgreSQL) e API FastAPI.
@@ -19,6 +21,19 @@ A aplicação é uma API FastAPI com módulos de domínio separados por responsa
 | Modelos | Entidades SQLAlchemy e relacionamentos | `app/modules/*/models.py` |
 | Schemas | Contratos Pydantic de API, classificação e extração | `app/modules/*/schemas.py` |
 | Orquestração | Scheduler diário e endpoints manuais de lote | `app/modules/ingestion` |
+
+## Componentes de Runtime
+
+| Componente | Papel |
+| --- | --- |
+| API FastAPI | Recebe chamadas REST, injeta sessão SQLAlchemy e instancia serviços. |
+| APScheduler | Agenda o ciclo diário quando `ENABLE_INGESTION_SCHEDULER=true`. |
+| PostgreSQL | Estado transacional do pipeline e dados estruturados finais. |
+| RustFS/S3 ou local storage | Armazena PDFs brutos fora do banco. |
+| PyMuPDF | Extrai texto por página para classificação e extração. |
+| Ollama | Provider local para classificação e extração. |
+| OpenAI Responses API | Provider remoto para classificação e extração síncrona. |
+| OpenAI Batch API | Provider remoto assíncrono para extração offline por arquivo JSONL. |
 
 ## Como o Código Está Organizado
 
@@ -65,6 +80,11 @@ As respostas podem conter duas camadas:
 - `metrics`: valores numéricos explícitos que entram em `metrics`.
 - `insights`: fatos documentais qualitativos ou textuais que entram em `document_insights`.
 
+No fluxo OpenAI Batch API, a aplicação cria `custom_id` no formato
+`document-{id}-part-{n}-of-{total}` para reconciliar a saída com o documento e a
+parte original. O import não depende da ordem do arquivo de saída e falha o
+documento se alguma parte retornar erro ou não aparecer no resultado.
+
 ### RustFS / S3 Compatível
 
 O storage pode ser local no desenvolvimento ou RustFS no Compose. O banco guarda apenas metadados e URI do objeto.
@@ -87,3 +107,11 @@ Inspirado em arquitetura Medallion, o projeto mantém duas leituras:
 - `/api/conjuntura`: visão final deduplicada, escolhendo a melhor evidência para cada métrica canônica.
 
 Essa separação evita perder rastreabilidade e ainda oferece uma saída pronta para consumo analítico.
+
+## Camadas de Dados
+
+| Camada | Representação no projeto |
+| --- | --- |
+| Bronze | PDFs brutos em storage e registros de controle em `documents`. |
+| Silver | Métricas, insights e linhagem persistidos após validação. |
+| Gold | `/api/conjuntura`, deduplicada por métrica canônica e qualidade de evidência. |

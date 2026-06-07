@@ -18,7 +18,7 @@ O projeto transforma PDFs de Relações com Investidores, relatórios de sustent
 - Extrai texto dos PDFs com PyMuPDF.
 - Classifica documentos como úteis, irrelevantes ou dependentes de OCR.
 - Seleciona contexto por full scan ou varredura sequencial completa.
-- Envia contexto para LLM via Ollama local ou OpenAI Structured Outputs.
+- Envia contexto para LLM via Ollama local, OpenAI Responses API ou OpenAI Batch API.
 - Valida a resposta com Pydantic.
 - Normaliza métricas por vocabulário controlado.
 - Persiste documentos, métricas, insights e linhagem em PostgreSQL.
@@ -28,10 +28,29 @@ O projeto transforma PDFs de Relações com Investidores, relatórios de sustent
 ## Caminho Recomendado
 
 1. Leia [Objetivo e Escopo](projeto/objetivo.md) para entender o problema.
-2. Veja [Arquitetura](projeto/arquitetura.md) e [Fluxo de Dados](projeto/fluxo-de-dados.md).
+2. Veja [Arquitetura](projeto/arquitetura.md), [Operação do Pipeline](projeto/operacao.md) e [Fluxo de Dados](projeto/fluxo-de-dados.md).
 3. Configure o ambiente em [Configuração](ambiente/configuracao.md).
 4. Rode a API seguindo [Executar Localmente](ambiente/execucao-local.md) ou [Docker Compose](como_rodar_com_compose.md).
 5. Consulte [Testes](ambiente/testes.md) antes de alterar o comportamento.
+
+## Como a Aplicação Funciona
+
+O ciclo operacional começa em uma chamada manual, no scheduler diário ou na CLI.
+A aplicação lê empresas ativas, descobre PDFs em páginas de RI, baixa documentos
+novos, elimina duplicados por hash, salva os arquivos em storage e registra o
+controle em `documents`.
+
+Depois disso, o pipeline usa uma etapa de classificação para decidir se o PDF
+deve ser extraído, ignorado ou marcado como dependente de OCR. Somente documentos
+`classified_useful` seguem para a extração. A extração pode usar Ollama local,
+OpenAI síncrono pela Responses API ou OpenAI Batch API para processamento
+assíncrono por JSONL.
+
+Os resultados entram em duas tabelas de leitura: `metrics`, para valores
+numéricos explícitos, e `document_insights`, para fatos qualitativos úteis. Cada
+métrica persistida também gera linhagem em `data_lineage`. A consulta final de
+conjuntura fica em `/api/conjuntura`, que deduplica métricas canônicas e escolhe
+a melhor evidência.
 
 ## Principais Endpoints
 

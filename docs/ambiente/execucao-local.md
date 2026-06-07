@@ -25,10 +25,10 @@ uv run alembic upgrade head
 ## Fluxo Manual
 
 1. Cadastre uma empresa.
-2. Execute ingestão.
-3. Execute classificação em lote, se a ingestão foi separada.
-4. Execute extração em lote para documentos classificados como úteis.
-5. Consulte métricas, insights ou conjuntura.
+2. Execute `POST /api/ingestion/run` para rodar o ciclo completo.
+3. Se quiser controlar as etapas separadamente, use `classify-batch` e `extract-batch`.
+4. Com `LLM_PROVIDER=openai`, use os endpoints `openai-batch` para extração assíncrona.
+5. Consulte documentos, métricas, insights ou conjuntura.
 
 ## Exemplos de Chamadas
 
@@ -55,6 +55,8 @@ curl -X POST "http://localhost:8000/api/ingestion/openai-batch/submit?batch_size
 curl "http://localhost:8000/api/ingestion/openai-batch/{batch_id}"
 curl -X POST "http://localhost:8000/api/ingestion/openai-batch/{batch_id}/import"
 ```
+
+Use o `import` apenas quando a consulta de status retornar `completed`.
 
 ```bash
 curl "http://localhost:8000/api/conjuntura?empresa=MRV&ano=2025&trimestre=3"

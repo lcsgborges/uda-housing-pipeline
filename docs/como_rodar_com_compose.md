@@ -147,7 +147,14 @@ curl -X POST "http://localhost:8000/api/companies" \
 curl -X POST "http://localhost:8000/api/ingestion/run"
 ```
 
-O fluxo baixa PDFs novos, calcula SHA-256, ignora duplicados, grava o arquivo no RustFS, classifica documentos baixados e extrai métricas/insights estruturados dos documentos úteis com o provider configurado. Com OpenAI, os documentos pendentes são agrupados por lote; com Ollama, são processados sequencialmente no servidor local.
+O fluxo baixa PDFs novos, calcula SHA-256, ignora duplicados, grava o arquivo no
+RustFS, classifica documentos baixados e extrai métricas/insights estruturados
+dos documentos úteis com o provider configurado.
+
+Com Ollama, o lote é processado sequencialmente no servidor local. Com OpenAI, a
+extração pode ser síncrona (`extract-batch`) ou assíncrona pela Batch API
+(`openai-batch/submit`, status e import). Para grandes documentos, um único PDF
+pode gerar várias partes e várias requests de LLM.
 
 ## 6. Consultar resultados
 
