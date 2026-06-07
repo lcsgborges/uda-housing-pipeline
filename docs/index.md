@@ -4,6 +4,10 @@ Documentação técnica do pipeline UDA para análise de dados não estruturados
 
 O projeto transforma PDFs de Relações com Investidores, relatórios de sustentabilidade e boletins de conjuntura em métricas e insights estruturados, auditáveis e consultáveis por API. O pipeline usa uma classificação barata antes da extração, contrato Pydantic para a saída da LLM, catálogo canônico de métricas, persistência relacional e linhagem da evidência original.
 
+## Vídeo de Apresentação
+
+Assista ao vídeo explicando o projeto: [https://youtu.be/Z5l5Tx-Xv2E](https://youtu.be/Z5l5Tx-Xv2E)
+
 ## Autoria e Repositório
 
 - Autor: Lucas Guimarães Borges

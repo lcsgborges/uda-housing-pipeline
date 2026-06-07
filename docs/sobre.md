@@ -13,3 +13,7 @@ Lucas Guimarães Borges
 ## Projeto
 
 Housing Data Intelligence é um pipeline UDA para estruturar dados habitacionais a partir de documentos não estruturados, com API FastAPI, classificação e extração por LLM, PostgreSQL, RustFS, documentação MkDocs Material e CI/CD no GitHub Actions.
+
+## Vídeo de Apresentação
+
+Assista ao vídeo explicando o projeto: [https://youtu.be/Z5l5Tx-Xv2E](https://youtu.be/Z5l5Tx-Xv2E)
